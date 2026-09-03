@@ -1,0 +1,14 @@
+# FairTune itself ships no requirements.txt. This is the set of third-party
+# packages actually imported across its .py files plus this orchestration
+# layer's preprocessing script. Install AFTER the ROCm PyTorch wheels from
+# repo.radeon.com (see ../WSL_ROCM_SETUP.md) — do not let this pull in a
+# CUDA/CPU-only torch build.
+timm
+optuna
+loralib
+fairlearn
+wandb
+pyyaml
+pandas
+scikit-learn
+openpyxl

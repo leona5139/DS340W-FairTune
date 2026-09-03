@@ -1,0 +1,9 @@
+# Raw dataset and pretrained-weight cache are not ours to redistribute /
+# not needed for grading — never commit these.
+/data/
+/Papila/
+**/checkpoint*.pth
+**/*.pt
+
+__pycache__/
+*.pyc
