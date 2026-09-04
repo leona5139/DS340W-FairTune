@@ -7,3 +7,6 @@
 
 __pycache__/
 *.pyc
+
+# Project-local virtualenv (see CUDA_SETUP.md) — never commit it.
+.venv/

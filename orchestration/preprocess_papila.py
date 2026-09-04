@@ -3,7 +3,7 @@
 PAPILA release (ClinicalData/*.xlsx + FundusImages/*.jpg).
 
 Port of the Colab notebook's Section 3, unchanged in logic. Pure pandas/openpyxl/
-sklearn — no GPU, no ROCm — safe to run on any machine that has the raw Papila/
+sklearn — no GPU required — safe to run on any machine that has the raw Papila/
 folder, independent of wherever the actual training later happens.
 
 Split naming note: the assignment defines Test as the 20% touched iteratively

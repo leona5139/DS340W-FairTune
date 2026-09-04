@@ -58,6 +58,12 @@ done
 
 [[ -z "$SPLITS_DIR" ]] && SPLITS_DIR="${REPO_DIR}/data_splits"
 
+if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+    echo "ERROR: no active Python virtualenv (\$VIRTUAL_ENV unset)." >&2
+    echo "Activate the project venv first: source .venv/Scripts/activate" >&2
+    exit 1
+fi
+
 if [[ "$SMOKE_TEST" -eq 1 ]]; then
     STAGE1_EPOCHS=2
     STAGE1_NUM_TRIALS=2
@@ -77,12 +83,12 @@ do_preprocess() {
         return
     fi
     banner "PREPROCESS — building train/val/test.csv from PAPILA" "papila_dir=${PAPILA_DIR} -> ${SPLITS_DIR}"
-    run_cmd python3 "${SCRIPT_DIR}/preprocess_papila.py" --papila-dir "$PAPILA_DIR" --out-dir "$SPLITS_DIR"
+    run_cmd "$PY_BIN" "${SCRIPT_DIR}/preprocess_papila.py" --papila-dir "$PAPILA_DIR" --out-dir "$SPLITS_DIR"
 }
 
 do_config() {
     banner "CONFIG — filling config.yaml" "repo_dir=${REPO_DIR}"
-    run_cmd python3 "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" \
+    run_cmd "$PY_BIN" "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" \
         --img-dir "${PAPILA_DIR}/FundusImages" \
         --train-csv "${SPLITS_DIR}/train.csv" \
         --val-csv "${SPLITS_DIR}/val.csv" \
@@ -90,12 +96,12 @@ do_config() {
 }
 
 do_verify() {
-    run_cmd python3 "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" --verify-only
+    run_cmd "$PY_BIN" "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" --verify-only
 }
 
 do_verify_env() {
-    banner "VERIFY ENV — ROCm / GPU sanity check"
-    run_cmd python3 "${SCRIPT_DIR}/verify_env.py" --workers "$WORKERS"
+    banner "VERIFY ENV — CUDA / GPU sanity check"
+    run_cmd "$PY_BIN" "${SCRIPT_DIR}/verify_env.py" --workers "$WORKERS"
 }
 
 do_stage1() {
@@ -105,7 +111,7 @@ do_stage1() {
         "epochs=${STAGE1_EPOCHS} trials=${STAGE1_NUM_TRIALS} pruner=${PRUNER} batch_size=${BATCH_SIZE} workers=${WORKERS}"
     (
         cd "$REPO_DIR"
-        run_cmd python search_mask.py \
+        run_cmd "$PY_BIN" search_mask.py \
             --model vit_base \
             --dataset papila \
             --sens_attribute "$attr" \
@@ -135,7 +141,7 @@ do_stage2() {
         "mask=${mask} epochs=${STAGE2_EPOCHS} batch_size=${BATCH_SIZE} workers=${WORKERS}"
     (
         cd "$REPO_DIR"
-        run_cmd python finetune_with_mask.py \
+        run_cmd "$PY_BIN" finetune_with_mask.py \
             --model vit_base \
             --dataset papila \
             --sens_attribute "$attr" \
@@ -153,7 +159,7 @@ do_stage2() {
 
 do_results() {
     banner "RESULTS"
-    python3 - "$REPO_DIR" <<'PYEOF'
+    "$PY_BIN" - "$REPO_DIR" <<'PYEOF'
 import glob
 import sys
 import pandas as pd

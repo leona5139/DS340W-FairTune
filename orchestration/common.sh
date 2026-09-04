@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 # Shared helpers for run_pipeline.sh. Sourced, not executed directly.
 
+# PY_BIN: resolve straight from $VIRTUAL_ENV rather than trusting PATH.
+# Windows' `python -m venv` only ever creates Scripts/python.exe, never a
+# python3 — so a plain `command -v python3` skips right past the activated
+# venv and hits Windows' App Execution Alias stub (a shim that just errors
+# out telling you to install Python from the Microsoft Store), even with the
+# venv active. run_pipeline.sh already requires VIRTUAL_ENV to be set before
+# sourcing this, so go directly to that interpreter; only fall back to a
+# PATH search if this is ever sourced without an active venv.
+PY_BIN=""
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    if [[ -x "${VIRTUAL_ENV}/Scripts/python.exe" ]]; then
+        PY_BIN="${VIRTUAL_ENV}/Scripts/python.exe"
+    elif [[ -x "${VIRTUAL_ENV}/bin/python" ]]; then
+        PY_BIN="${VIRTUAL_ENV}/bin/python"
+    fi
+fi
+[[ -z "$PY_BIN" ]] && PY_BIN="$(command -v python3 >/dev/null 2>&1 && echo python3 || echo python)"
+
 # --- Tunable defaults, all overridable via environment variable ---------
 # BATCH_SIZE=42: search_mask.py hardcodes drop_last=False for papila, and
 # utilities/utils.py's accuracy_by_gender/accuracy_by_age divide by
@@ -18,10 +36,10 @@
 : "${STAGE1_NUM_TRIALS:=20}"
 : "${STAGE2_EPOCHS:=15}"
 
-# WORKERS: PyTorch DataLoader with num_workers>0 has a documented history of
-# silently deadlocking on ROCm. Default conservative; verify_env.py smoke-tests
-# this exact value before the real run. Drop to 0 if you see a hang with no
-# traceback.
+# WORKERS: PyTorch DataLoader with num_workers>0 can occasionally hang with
+# no traceback on some GPU/OS combinations. Default conservative;
+# verify_env.py smoke-tests this exact value before the real run. Drop to 0
+# if you see a hang with no traceback.
 : "${WORKERS:=4}"
 
 : "${PRUNER:=SuccessiveHalving}"

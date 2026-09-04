@@ -1,8 +1,8 @@
 # FairTune itself ships no requirements.txt. This is the set of third-party
 # packages actually imported across its .py files plus this orchestration
-# layer's preprocessing script. Install AFTER the ROCm PyTorch wheels from
-# repo.radeon.com (see ../WSL_ROCM_SETUP.md) — do not let this pull in a
-# CUDA/CPU-only torch build.
+# layer's preprocessing script. Install CUDA-enabled torch/torchvision FIRST
+# (pip install torch torchvision --index-url https://download.pytorch.org/whl/cuXXX
+# — see ../CUDA_SETUP.md), then this file, both inside the project's .venv.
 timm
 optuna
 loralib
@@ -12,3 +12,5 @@ pyyaml
 pandas
 scikit-learn
 openpyxl
+matplotlib
+seaborn
