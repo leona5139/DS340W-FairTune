@@ -1,0 +1,9 @@
+number,min_auc,params_Mask Idx 0,params_Mask Idx 1,params_Mask Idx 10,params_Mask Idx 11,params_Mask Idx 12,params_Mask Idx 13,params_Mask Idx 14,params_Mask Idx 15,params_Mask Idx 16,params_Mask Idx 17,params_Mask Idx 18,params_Mask Idx 19,params_Mask Idx 2,params_Mask Idx 20,params_Mask Idx 21,params_Mask Idx 22,params_Mask Idx 23,params_Mask Idx 24,params_Mask Idx 25,params_Mask Idx 26,params_Mask Idx 27,params_Mask Idx 28,params_Mask Idx 29,params_Mask Idx 3,params_Mask Idx 30,params_Mask Idx 31,params_Mask Idx 32,params_Mask Idx 33,params_Mask Idx 34,params_Mask Idx 35,params_Mask Idx 4,params_Mask Idx 5,params_Mask Idx 6,params_Mask Idx 7,params_Mask Idx 8,params_Mask Idx 9,params_lr,system_attrs_completed_rung_1,state
+0,0.851,1,0,0,0,1,0,1,0,0,0,0,0,0,0,0,1,1,1,1,0,0,1,0,0,1,0,1,0,1,1,1,1,0,1,1,0,0.0005068922833152187,,COMPLETE
+1,0.691,0,0,1,1,0,1,1,0,1,0,0,0,0,1,0,0,1,0,1,0,0,1,1,0,1,0,1,0,0,0,1,1,0,0,1,1,7.065448738948057e-05,0.691,COMPLETE
+2,0.644,0,0,1,1,1,0,0,1,0,1,0,0,0,0,1,0,1,1,0,1,0,0,1,0,1,1,1,0,0,1,0,0,1,1,0,0,0.000678248501228174,,PRUNED
+3,0.788,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,0,1,1,0,0,1,1,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0.0003128982181924858,0.788,COMPLETE
+4,0.59,1,0,1,1,1,0,1,1,1,0,1,0,0,0,1,0,1,1,1,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,0,1,4.7384095760302214e-05,,PRUNED
+5,0.554,1,1,1,0,0,1,1,1,0,0,0,1,0,1,1,0,0,1,1,1,1,1,1,0,1,0,1,0,1,0,0,1,0,1,1,0,1.738387380712172e-05,,PRUNED
+6,0.556,1,1,0,1,1,0,0,0,0,1,1,0,0,1,0,0,1,1,0,1,0,0,1,0,0,1,1,1,1,0,0,1,0,0,0,0,1.3772226461981452e-05,,PRUNED
+7,0.733,1,0,0,1,0,0,1,1,1,0,0,1,0,1,0,0,0,1,0,1,0,0,1,0,1,1,1,1,1,1,1,0,1,1,0,1,0.0008347374575085843,,PRUNED

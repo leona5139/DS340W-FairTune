@@ -1,53 +1,43 @@
 data:
   HAM10000:
-    root_path: ''
     img_path: ''
+    root_path: ''
+    test_csv: ''
     train_csv: ''
     val_csv: ''
-    test_csv: ''
-
-  fitzpatrick: ''
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-
-  papila:
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-
-  ol3i:
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-    
-  oasis:
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-
   chexpert:
-    root_path: ''
     img_path: ''
+    root_path: ''
+    test_csv: ''
     train_csv: ''
     val_csv: ''
+  fitzpatrick:
+    img_path: ''
+    root_path: ''
     test_csv: ''
-
+    train_csv: ''
+    val_csv: ''
   glaucoma:
-    root_path: ''
     img_path: ''
+    root_path: ''
+    test_csv: ''
     train_csv: ''
     val_csv: ''
+  oasis:
+    img_path: ''
+    root_path: ''
     test_csv: ''
-
-  
-
-  
+    train_csv: ''
+    val_csv: ''
+  ol3i:
+    img_path: ''
+    root_path: ''
+    test_csv: ''
+    train_csv: ''
+    val_csv: ''
+  papila:
+    img_path: C:/Users/secre/fairtune_papila/data/Papila/FundusImages
+    root_path: C:/Users/secre/fairtune_papila/data/Papila/FundusImages
+    test_csv: C:/Users/secre/Desktop/leonya/DS340W-FairTune/data_splits/test.csv
+    train_csv: C:/Users/secre/Desktop/leonya/DS340W-FairTune/data_splits/train.csv
+    val_csv: C:/Users/secre/Desktop/leonya/DS340W-FairTune/data_splits/val.csv

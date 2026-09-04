@@ -27,14 +27,17 @@ fi
 # (train=294, val=84, test=42), avoiding the crash without touching repo code.
 : "${BATCH_SIZE:=42}"
 
-# STAGE1_EPOCHS/STAGE1_NUM_TRIALS: the Colab version kept these at 5/10
-# specifically to fit inside a free-tier T4's session-time limit. That
-# constraint doesn't exist on a local always-on machine, and it's the likely
-# cause of "results too short" / Optuna's diagnostic plots failing (too few
-# trials survived pruning with too little signal per trial to compare).
-: "${STAGE1_EPOCHS:=15}"
-: "${STAGE1_NUM_TRIALS:=20}"
-: "${STAGE2_EPOCHS:=15}"
+# STAGE1_EPOCHS/STAGE1_NUM_TRIALS/STAGE2_EPOCHS: a real timed run on this
+# machine measured ~10 min/trial at STAGE1_EPOCHS=15, which put the old
+# 15/20 defaults at 20+ hours for a single attribute — nowhere near the
+# assignment's 4-hour recording budget. Diagnostic-plot quality and mask
+# quality are both explicitly not goals here (see CLAUDE.md); the only
+# requirement is that Stage 1 produces *a* mask Stage 2 can load. These
+# values trade search depth for wall-clock time accordingly — raise them
+# back toward 15/20 only if there's time to spare.
+: "${STAGE1_EPOCHS:=5}"
+: "${STAGE1_NUM_TRIALS:=8}"
+: "${STAGE2_EPOCHS:=5}"
 
 # WORKERS: PyTorch DataLoader with num_workers>0 can occasionally hang with
 # no traceback on some GPU/OS combinations. Default conservative;
