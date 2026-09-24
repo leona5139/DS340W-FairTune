@@ -1,8 +1,11 @@
-# FairTune itself ships no requirements.txt. This is the set of third-party
-# packages actually imported across its .py files plus this orchestration
-# layer's preprocessing scripts. Install AFTER the ROCm PyTorch wheels from
-# repo.radeon.com (see ../WSL_ROCM_SETUP.md) — do not let this pull in a
-# CUDA/CPU-only torch build.
+# layer's preprocessing scripts. Install torch/torchvision FIRST, both inside
+# the project's .venv:
+#   - Primary path: ROCm PyTorch wheels from repo.radeon.com
+#     (see ../WSL_ROCM_SETUP.md) — do not let this pull in a CUDA/CPU-only
+#     torch build.
+#   - Fallback path (native Windows / no ROCm-supported AMD GPU): CUDA-enabled
+#     torch/torchvision (pip install torch torchvision --index-url
+#     https://download.pytorch.org/whl/cuXXX — see ../CUDA_SETUP.md).
 #
 # Data provenance: preprocess_papila.py consumes the raw PAPILA release
 # (../../Papila/, ClinicalData/ + FundusImages/). preprocess_glaucoma.py
@@ -22,3 +25,5 @@ numpy
 pillow
 scikit-learn
 openpyxl
+matplotlib
+seaborn

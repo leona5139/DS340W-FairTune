@@ -7,3 +7,7 @@
 
 __pycache__/
 *.pyc
+
+# Project-local virtualenv (see WSL_ROCM_SETUP.md / CUDA_SETUP.md) — never
+# commit it.
+.venv/

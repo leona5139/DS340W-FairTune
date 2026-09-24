@@ -100,6 +100,12 @@ if [[ -z "${BATCH_SIZE:-}" ]]; then
     esac
 fi
 
+if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+    echo "ERROR: no active Python virtualenv (\$VIRTUAL_ENV unset)." >&2
+    echo "Activate the project venv first: source .venv/Scripts/activate" >&2
+    exit 1
+fi
+
 if [[ "$SMOKE_TEST" -eq 1 ]]; then
     STAGE1_EPOCHS=2
     STAGE1_NUM_TRIALS=2
@@ -121,10 +127,10 @@ do_preprocess() {
     fi
     if [[ "$DATASET" == "papila" ]]; then
         banner "PREPROCESS — building train/val/test.csv from PAPILA" "papila_dir=${PAPILA_DIR} -> ${SPLITS_DIR}"
-        run_cmd python3 "${SCRIPT_DIR}/preprocess_papila.py" --papila-dir "$PAPILA_DIR" --out-dir "$SPLITS_DIR"
+        run_cmd "$PY_BIN" "${SCRIPT_DIR}/preprocess_papila.py" --papila-dir "$PAPILA_DIR" --out-dir "$SPLITS_DIR"
     else
         banner "PREPROCESS — building train/val/test.csv from Harvard-GF" "harvard_dir=${HARVARD_DIR} -> ${SPLITS_DIR}"
-        run_cmd python3 "${SCRIPT_DIR}/preprocess_glaucoma.py" --harvard-dir "$HARVARD_DIR" --out-dir "$SPLITS_DIR"
+        run_cmd "$PY_BIN" "${SCRIPT_DIR}/preprocess_glaucoma.py" --harvard-dir "$HARVARD_DIR" --out-dir "$SPLITS_DIR"
     fi
 }
 
@@ -135,7 +141,7 @@ do_config() {
     else
         IMG_DIR="${HARVARD_DIR}/RNFLT_png"
     fi
-    run_cmd python3 "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" --dataset "$DATASET" \
+    run_cmd "$PY_BIN" "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" --dataset "$DATASET" \
         --img-dir "$IMG_DIR" \
         --train-csv "${SPLITS_DIR}/train.csv" \
         --val-csv "${SPLITS_DIR}/val.csv" \
@@ -143,12 +149,12 @@ do_config() {
 }
 
 do_verify() {
-    run_cmd python3 "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" --dataset "$DATASET" --verify-only
+    run_cmd "$PY_BIN" "${SCRIPT_DIR}/configure_fairtune.py" --repo-dir "$REPO_DIR" --dataset "$DATASET" --verify-only
 }
 
 do_verify_env() {
-    banner "VERIFY ENV — ROCm / GPU sanity check"
-    run_cmd python3 "${SCRIPT_DIR}/verify_env.py" --workers "$WORKERS"
+    banner "VERIFY ENV — CUDA / GPU sanity check"
+    run_cmd "$PY_BIN" "${SCRIPT_DIR}/verify_env.py" --workers "$WORKERS"
 }
 
 do_stage1() {
@@ -159,7 +165,7 @@ do_stage1() {
             "epochs=${STAGE1_EPOCHS} trials=${STAGE1_NUM_TRIALS} pruner=${PRUNER} batch_size=${BATCH_SIZE} workers=${WORKERS}"
         (
             cd "$REPO_DIR"
-            run_cmd python search_mask.py \
+            run_cmd "$PY_BIN" search_mask.py \
                 --model vit_base \
                 --dataset "$DATASET" \
                 --sens_attribute "$attr" \
@@ -183,7 +189,7 @@ do_stage1() {
             # shellcheck disable=SC2086  # SENSITIVITY_K_SCHEDULE/SENSITIVITY_NUM_BATCHES are
             # deliberately unquoted below: --k_schedule/--sensitivity_num_batches take nargs="+",
             # so a multi-value env var (e.g. "1 4 36") must word-split into separate argv entries.
-            run_cmd python search_mask_sensitivity.py \
+            run_cmd "$PY_BIN" search_mask_sensitivity.py \
                 --model vit_base \
                 --dataset "$DATASET" \
                 --sens_attribute "$attr" \
@@ -217,7 +223,7 @@ do_stage2() {
         "mask=${mask} epochs=${STAGE2_EPOCHS} batch_size=${BATCH_SIZE} workers=${WORKERS}"
     (
         cd "$REPO_DIR"
-        run_cmd python finetune_with_mask.py \
+        run_cmd "$PY_BIN" finetune_with_mask.py \
             --model vit_base \
             --dataset "$DATASET" \
             --sens_attribute "$attr" \
@@ -235,7 +241,7 @@ do_stage2() {
 
 do_results() {
     banner "RESULTS"
-    python3 - "$REPO_DIR" <<'PYEOF'
+    "$PY_BIN" - "$REPO_DIR" <<'PYEOF'
 import glob
 import sys
 import pandas as pd
