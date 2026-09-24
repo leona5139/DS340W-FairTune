@@ -53,6 +53,7 @@ def create_results_df(args):
         or args.sens_attribute == "age"
         or args.sens_attribute == "race"
         or args.sens_attribute == "age_sex"
+        or args.sens_attribute == "intersectional"
     ):
         cols = [
             "Tuning Method",
@@ -584,6 +585,51 @@ def main(args):
                 )
                 print("\n")
 
+            elif args.sens_attribute == "intersectional":
+                assert args.cal_equiodds is not None
+                (
+                    val_acc,
+                    val_acc_groups,
+                    val_auc,
+                    val_auc_groups,
+                    val_loss,
+                    val_max_loss,
+                    val_group_counts,
+                    equiodds_diff,
+                    equiodds_ratio,
+                    dpd,
+                    dpr,
+                ) = evaluate_fairness_intersectional(
+                    model,
+                    criterion,
+                    ece_criterion,
+                    data_loader_val,
+                    args=args,
+                    device=device,
+                )
+
+                best_val_acc = max(val_acc_groups)
+                worst_val_acc = min(val_acc_groups)
+
+                best_val_auc = max(val_auc_groups)
+                worst_val_auc = min(val_auc_groups)
+
+                print(
+                    "Val Acc: {:.2f}, Val Group Accs: {}, Val Loss: {:.2f}, Val MAX LOSS: {:.2f}".format(
+                        val_acc,
+                        val_acc_groups,
+                        torch.mean(val_loss),
+                        val_max_loss,
+                    )
+                )
+                print(
+                    "Val AUC: {:.2f}, Val Group AUCs: {}".format(
+                        val_auc,
+                        val_auc_groups,
+                    )
+                )
+                print("\n")
+
             else:
                 raise NotImplementedError("Sensitive attribute not implemented")
 
@@ -818,6 +864,43 @@ def main(args):
                 print("EquiOdds Ratio: ", equiodds_ratio)
                 print("DPD: ", dpd)
                 print("DPR: ", dpr)
+
+        elif args.sens_attribute == "intersectional":
+            (
+                test_acc,
+                test_acc_groups,
+                test_auc,
+                test_auc_groups,
+                test_loss,
+                test_max_loss,
+                test_group_counts,
+                equiodds_diff,
+                equiodds_ratio,
+                dpd,
+                dpr,
+            ) = evaluate_fairness_intersectional(
+                model,
+                criterion,
+                ece_criterion,
+                data_loader_test,
+                args=args,
+                device=device,
+            )
+
+            print("\n")
+            print("Overall Test accuracy: ", test_acc)
+            print("Test Group Accuracies: ", test_acc_groups)
+            print("Test Group (correct, count): ", test_group_counts)
+            print("\n")
+            print("Overall Test AUC: ", test_auc)
+            print("Test Group AUCs: ", test_auc_groups)
+
+            if args.cal_equiodds:
+                print("\n")
+                print("EquiOdds Difference: ", equiodds_diff)
+                print("EquiOdds Ratio: ", equiodds_ratio)
+                print("DPD: ", dpd)
+                print("DPR: ", dpr)
         else:
             raise NotImplementedError("Sensitive Attribute not supported")
 
@@ -943,6 +1026,52 @@ def main(args):
                 round(dpr, 3),
                 mask_path,
             ]
+
+        elif args.sens_attribute == "intersectional":
+            assert args.use_metric == "auc"
+            assert args.cal_equiodds is not None
+
+            best_auc = max(test_auc_groups)
+            worst_auc = min(test_auc_groups)
+
+            new_row2 = [
+                args.tuning_method,
+                round(trainable_percentage, 3),
+                args.lr,
+                test_auc,
+                best_auc,
+                worst_auc,
+                round(abs(best_auc - worst_auc), 3),
+                round(equiodds_diff, 3),
+                round(equiodds_ratio, 3),
+                round(dpd, 3),
+                round(dpr, 3),
+                mask_path,
+            ]
+
+            # The shared test_results_df schema above only has room for a
+            # Best/Worst/Diff summary across groups -- orchestration/
+            # analyze_intersectional_results.py needs per-group RAW counts
+            # (not just accuracy%) to recombine marginal age-only/gender-only
+            # /race-only gaps by weighted, not naive, averaging. Persist that
+            # detail in a side file next to the main results CSV.
+            groups_csv_path = os.path.join(
+                args.output_dir,
+                "RESULTS_intersectional_groups_" + args.objective_metric + ".csv",
+            )
+            group_rows = pd.DataFrame({
+                "Tuning Method": args.tuning_method,
+                "Mask Path": mask_path,
+                "Intersectional_Group": range(len(test_acc_groups)),
+                "correct": [c for c, _ in test_group_counts],
+                "count": [n for _, n in test_group_counts],
+                "acc": [a.item() if hasattr(a, "item") else a for a in test_acc_groups],
+                "auc": test_auc_groups,
+            })
+            if os.path.exists(groups_csv_path):
+                group_rows = pd.concat([pd.read_csv(groups_csv_path), group_rows], ignore_index=True)
+            group_rows.to_csv(groups_csv_path, index=False)
+            print("Saved per-group intersectional detail at:", groups_csv_path)
 
         else:
             raise NotImplementedError("Sensitive attribute not implemented")

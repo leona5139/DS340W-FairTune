@@ -244,7 +244,20 @@ def train_one_epoch_fairness(
             auc, auc_type0, auc_type1, auc_type2, auc_type3 = utils.auc_by_age_sex(
                 output, target, sens_attr, topk=(1,)
             )
-            
+
+        elif args.sens_attribute == "intersectional":
+            # Accuracy
+            acc1, group_res = utils.accuracy_by_intersectional_group(
+                output, target, sens_attr, args.num_sens_groups, topk=(1,)
+            )
+            acc1 = acc1[0]
+            acc_groups = [r[0] for r in group_res]
+
+            # AUC
+            auc, auc_groups = utils.auc_by_intersectional_group(
+                output, target, sens_attr, args.num_sens_groups, topk=(1,)
+            )
+
         else:
             raise NotImplementedError("Sens Attribute not implemented")
 
@@ -427,7 +440,24 @@ def train_one_epoch_fairness(
                 metric_logger.meters["auc_AgeSex3"].update(auc_type3, n=batch_size)
             else:
                 metric_logger.meters["auc_AgeSex3"].update(0.0, n=0)
-            
+
+        elif args.sens_attribute == "intersectional":
+            # ACCURACY (accuracy_by_intersectional_group never returns nan,
+            # only a 0.0 fallback tensor for an empty group)
+            for g in range(args.num_sens_groups):
+                metric_logger.meters[f"acc_Group{g}"].update(acc_groups[g].item(), n=batch_size)
+
+            # AUC
+            if auc is not np.nan:
+                metric_logger.meters["auc"].update(auc, n=batch_size)
+            else:
+                metric_logger.meters["auc"].update(0.0, n=0)
+
+            for g in range(args.num_sens_groups):
+                if auc_groups[g] is not np.nan:
+                    metric_logger.meters[f"auc_Group{g}"].update(auc_groups[g], n=batch_size)
+                else:
+                    metric_logger.meters[f"auc_Group{g}"].update(0.0, n=0)
 
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
 
@@ -463,6 +493,14 @@ def train_one_epoch_fairness(
             worst_acc_avg = min(metric_logger.acc_AgeSex0.global_avg, metric_logger.acc_AgeSex1.global_avg, metric_logger.acc_AgeSex2.global_avg, metric_logger.acc_AgeSex3.global_avg)
             best_auc_avg = max(metric_logger.auc_AgeSex0.global_avg, metric_logger.auc_AgeSex1.global_avg, metric_logger.auc_AgeSex2.global_avg, metric_logger.auc_AgeSex3.global_avg)
             worst_auc_avg = min(metric_logger.auc_AgeSex0.global_avg, metric_logger.auc_AgeSex1.global_avg, metric_logger.auc_AgeSex2.global_avg, metric_logger.auc_AgeSex3.global_avg)
+
+        elif(args.sens_attribute == 'intersectional'):
+            group_acc_avgs = [metric_logger.meters[f"acc_Group{g}"].global_avg for g in range(args.num_sens_groups)]
+            group_auc_avgs = [metric_logger.meters[f"auc_Group{g}"].global_avg for g in range(args.num_sens_groups)]
+            best_acc_avg = max(group_acc_avgs)
+            worst_acc_avg = min(group_acc_avgs)
+            best_auc_avg = max(group_auc_avgs)
+            worst_auc_avg = min(group_auc_avgs)
 
         acc_avg = metric_logger.acc1.global_avg
         auc_avg = metric_logger.auc.global_avg
@@ -763,6 +801,19 @@ def train_one_epoch_fairness_FSCL_classifier(
                 output, target, sens_attr, topk=(1,)
             )
 
+        elif args.sens_attribute == "intersectional":
+            # Accuracy
+            acc1, group_res = utils.accuracy_by_intersectional_group(
+                output, target, sens_attr, args.num_sens_groups, topk=(1,)
+            )
+            acc1 = acc1[0]
+            acc_groups = [r[0] for r in group_res]
+
+            # AUC
+            auc, auc_groups = utils.auc_by_intersectional_group(
+                output, target, sens_attr, args.num_sens_groups, topk=(1,)
+            )
+
         else:
             raise NotImplementedError("Sens Attribute not implemented")
 
@@ -945,6 +996,24 @@ def train_one_epoch_fairness_FSCL_classifier(
             else:
                 metric_logger.meters["auc_AgeSex3"].update(0.0, n=0)
 
+        elif args.sens_attribute == "intersectional":
+            # ACCURACY (accuracy_by_intersectional_group never returns nan,
+            # only a 0.0 fallback tensor for an empty group)
+            for g in range(args.num_sens_groups):
+                metric_logger.meters[f"acc_Group{g}"].update(acc_groups[g].item(), n=batch_size)
+
+            # AUC
+            if auc is not np.nan:
+                metric_logger.meters["auc"].update(auc, n=batch_size)
+            else:
+                metric_logger.meters["auc"].update(0.0, n=0)
+
+            for g in range(args.num_sens_groups):
+                if auc_groups[g] is not np.nan:
+                    metric_logger.meters[f"auc_Group{g}"].update(auc_groups[g], n=batch_size)
+                else:
+                    metric_logger.meters[f"auc_Group{g}"].update(0.0, n=0)
+
         metric_logger.meters["img/s"].update(batch_size / (time.time() - start_time))
 
         if args.sens_attribute == "gender":
@@ -1020,6 +1089,14 @@ def train_one_epoch_fairness_FSCL_classifier(
                 metric_logger.auc_AgeSex0.global_avg,
                 metric_logger.auc_AgeSex1.global_avg,
             )
+
+        elif args.sens_attribute == "intersectional":
+            group_acc_avgs = [metric_logger.meters[f"acc_Group{g}"].global_avg for g in range(args.num_sens_groups)]
+            group_auc_avgs = [metric_logger.meters[f"auc_Group{g}"].global_avg for g in range(args.num_sens_groups)]
+            best_acc_avg = max(group_acc_avgs)
+            worst_acc_avg = min(group_acc_avgs)
+            best_auc_avg = max(group_auc_avgs)
+            worst_auc_avg = min(group_auc_avgs)
 
         acc_avg = metric_logger.acc1.global_avg
         auc_avg = metric_logger.auc.global_avg
@@ -2387,6 +2464,192 @@ def evaluate_fairness_age_sex(
         )
 
 
+def evaluate_fairness_intersectional(
+    model,
+    criterion,
+    ece_criterion,
+    data_loader,
+    device,
+    args,
+    print_freq=100,
+    log_suffix="",
+    classifier=None,
+    **kwargs,
+):
+    """Generalized N-way version of evaluate_fairness_age_sex: loops over
+    args.num_sens_groups instead of unrolling exactly 4 (type1..type4).
+
+    Unlike the age_sex template, this also accumulates RAW per-group
+    correct-count and sample-count (not just accuracy%) -- needed so
+    orchestration/analyze_intersectional_results.py can recombine marginal
+    age-only/gender-only/race-only gaps by weighted, not naive, averaging.
+    Per-group loss is only accumulated for batches where that group actually
+    has samples (an empty-group torch.mean() would be nan and, added
+    cumulatively, would silently poison that group's running loss for the
+    rest of the run -- a real risk here given how thin some intersectional
+    groups can get, unlike age_sex's fixed 4-way case).
+    """
+    print("EVALUATING")
+    model.eval()
+
+    assert args.sens_attribute == "intersectional"
+    num_groups = args.num_sens_groups
+
+    total_loss = [0.0] * num_groups
+    num_group_samples = [0] * num_groups
+    total_correct = [0] * num_groups
+
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = f"Test: {log_suffix}"
+
+    num_processed_samples = 0
+    with torch.inference_mode():
+        for image, target, sens_attr in metric_logger.log_every(
+            data_loader, print_freq, header
+        ):
+            image = image.to(device, non_blocking=True)
+            target = target.to(device, non_blocking=True)
+
+            if args.fscl:
+                output_from_encoder = model.encoder(image)
+                output = classifier(output_from_encoder)
+            else:
+                output = model(image)
+
+            pred_probs = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+            preds = np.argmax(pred_probs, axis=1)
+            loss = criterion(output, target)
+            ece_loss = ece_criterion(output, target)
+
+            sens_attr_np = (
+                sens_attr.cpu().numpy() if torch.is_tensor(sens_attr) else np.array(sens_attr)
+            )
+            correct_np = preds == target.cpu().numpy()
+
+            for g in range(num_groups):
+                group_mask_np = sens_attr_np == g
+                group_count = int(group_mask_np.sum())
+                num_group_samples[g] += group_count
+                total_correct[g] += int((correct_np & group_mask_np).sum())
+                if group_count > 0:
+                    group_mask_t = torch.as_tensor(group_mask_np, device=loss.device)
+                    total_loss[g] += torch.mean(loss[group_mask_t]).item()
+
+            avg_losses = [
+                (total_loss[g] / num_group_samples[g]) if num_group_samples[g] > 0 else 0.0
+                for g in range(num_groups)
+            ]
+            max_val_loss = torch.tensor(max(avg_losses))
+            min_val_loss = torch.tensor(min(avg_losses))
+            diff_loss = torch.abs(max_val_loss - min_val_loss)
+
+            # Accuracy
+            acc1, group_res = utils.accuracy_by_intersectional_group(
+                output, target, sens_attr, num_groups, topk=(1,)
+            )
+            acc1 = acc1[0]
+            acc_groups = [r[0] for r in group_res]
+
+            # AUC
+            auc, auc_groups = utils.auc_by_intersectional_group(
+                output, target, sens_attr, num_groups, topk=(1,)
+            )
+
+            # Equalized Odds and Equalized Opportunity
+            equiodd_diff = utils.equiodds_difference(preds, target, sens_attr)
+            equiodd_ratio = utils.equiodds_ratio(preds, target, sens_attr)
+
+            # Demographic Parity Difference and Ratio
+            dpd = utils.dpd(preds, target, sens_attr)
+            dpr = utils.dpr(preds, target, sens_attr)
+
+            acc1_orig, acc5 = utils.accuracy(output, target, topk=(1, args.num_classes))
+
+            batch_size = image.shape[0]
+            metric_logger.update(loss=torch.mean(loss).item())
+            metric_logger.update(ece_loss=ece_loss.item())
+            metric_logger.update(max_val_loss=max_val_loss)
+            metric_logger.update(diff_loss=diff_loss)
+            metric_logger.meters["acc1"].update(acc1.item(), n=batch_size)
+            metric_logger.meters["acc5"].update(acc5.item(), n=batch_size)
+
+            for g in range(num_groups):
+                metric_logger.meters[f"acc_Group{g}"].update(acc_groups[g].item(), n=batch_size)
+                if auc_groups[g] is not np.nan:
+                    metric_logger.meters[f"auc_Group{g}"].update(auc_groups[g], n=batch_size)
+
+            if auc is not np.nan:
+                metric_logger.meters["auc"].update(auc, n=batch_size)
+
+            if equiodd_diff is not np.nan:
+                metric_logger.meters["equiodd_diff"].update(equiodd_diff, n=batch_size)
+            if equiodd_ratio is not np.nan:
+                metric_logger.meters["equiodd_ratio"].update(
+                    equiodd_ratio, n=batch_size
+                )
+
+            if dpd is not np.nan:
+                metric_logger.meters["dpd"].update(dpd, n=batch_size)
+            if dpr is not np.nan:
+                metric_logger.meters["dpr"].update(dpr, n=batch_size)
+
+            metric_logger.meters["max_val_loss"].update(max_val_loss, n=batch_size)
+            metric_logger.meters["diff_loss"].update(diff_loss, n=batch_size)
+            num_processed_samples += batch_size
+
+    metric_logger.synchronize_between_processes()
+
+    print(
+        f"{header} Acc@1 {metric_logger.acc1.global_avg:.3f} Acc@5 {metric_logger.acc5.global_avg:.3f} Max Loss {metric_logger.max_val_loss.global_avg:.3f} Diff Loss {metric_logger.diff_loss.global_avg:.3f}"
+    )
+
+    acc_avg = metric_logger.acc1.global_avg
+    group_acc_avgs = [
+        round(metric_logger.meters[f"acc_Group{g}"].global_avg, 3) for g in range(num_groups)
+    ]
+
+    auc_avg = metric_logger.auc.global_avg
+    group_auc_avgs = [
+        round(metric_logger.meters[f"auc_Group{g}"].global_avg, 3) for g in range(num_groups)
+    ]
+
+    # Equalized Odds and Equalized Opportunity
+    avg_e_diff = metric_logger.equiodd_diff.global_avg
+    avg_e_ratio = metric_logger.equiodd_ratio.global_avg
+
+    avg_dpd = metric_logger.dpd.global_avg
+    avg_dpr = metric_logger.dpr.global_avg
+
+    # Raw (correct_count, sample_count) per group -- the whole point of this
+    # function existing separately from evaluate_fairness_age_sex.
+    group_counts = list(zip(total_correct, num_group_samples))
+
+    if args.cal_equiodds:
+        return (
+            round(acc_avg, 3),
+            group_acc_avgs,
+            round(auc_avg, 3),
+            group_auc_avgs,
+            loss,
+            max_val_loss,
+            group_counts,
+            avg_e_diff,
+            avg_e_ratio,
+            avg_dpd,
+            avg_dpr,
+        )
+    else:
+        return (
+            round(acc_avg, 3),
+            group_acc_avgs,
+            round(auc_avg, 3),
+            group_auc_avgs,
+            loss,
+            max_val_loss,
+            group_counts,
+        )
+
+
 def _get_cache_path(filepath):
     import hashlib
 
@@ -2588,6 +2851,15 @@ class TwoCropTransform:
 
 def load_fairness_data(args, df, df_val, df_test):
     print("Loading fairness data")
+
+    if args.sens_attribute == "intersectional":
+        # Computed once, from the training CSV, before any per-dataset
+        # dataset-class construction below -- both PapilaDataset and
+        # HarvardGlaucoma just read the already-assigned Intersectional_Group
+        # column, so this is the single place num_sens_groups needs setting.
+        args.num_sens_groups = df["Intersectional_Group"].nunique()
+        print(f"num_sens_groups (intersectional) = {args.num_sens_groups}")
+
     val_resize_size, val_crop_size, train_crop_size = (
         args.val_resize_size,
         args.val_crop_size,

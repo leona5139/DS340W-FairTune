@@ -47,6 +47,8 @@ class HarvardGlaucoma(Dataset):
                 sens_attribute = self.df.iloc[idx]["Age_binary"]
         elif self.sens_attribute == "race":
             sens_attribute = self.df.iloc[idx]["Race"]
+        elif self.sens_attribute == "intersectional":
+            sens_attribute = self.df.iloc[idx]["Intersectional_Group"]
 
         if self.transform:
             image = self.transform(image)

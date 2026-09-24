@@ -42,6 +42,8 @@ class PapilaDataset(Dataset):
         elif self.sens_attribute == "age":
             # sens_attribute = self.df.iloc[idx]['Age_multi']
             sens_attribute = self.df.iloc[idx]["Age_binary"]
+        elif self.sens_attribute == "intersectional":
+            sens_attribute = self.df.iloc[idx]["Intersectional_Group"]
 
         if self.transform:
             image = self.transform(image)

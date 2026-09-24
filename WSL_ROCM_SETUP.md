@@ -99,8 +99,8 @@ avoids that entirely and matches `run_pipeline.sh`'s default `--papila-dir`.
 
 This clone is the actual assignment submission
 (`github.com/leona5139/DS340W-FairTune`), already containing the
-`orchestration/` scripts and pre-generated `data_splits/*.csv` prepared ahead
-of time:
+`orchestration/` scripts and pre-generated `data_splits_papila/*.csv`
+prepared ahead of time:
 
 ```bash
 git clone https://github.com/leona5139/DS340W-FairTune.git ~/fairtune_papila/FairTune

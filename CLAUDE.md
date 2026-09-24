@@ -1,12 +1,21 @@
 # Project context for Claude Code
 
-This repo is a straight, unmodified import of `Raman1121/FairTune`
+This repo started as a straight, unmodified import of `Raman1121/FairTune`
 (ICLR 2024 paper code) plus an `orchestration/` layer added around it — it is
-also the actual assignment submission for a class, so **never modify
-`search_mask.py`, `finetune_with_mask.py`, `parse_args.py`, `data/`, or
-`utilities/`** — the assignment requires running the authors' code unmodified.
-Everything new lives in `orchestration/`, `WSL_ROCM_SETUP.md`, `data_splits/`,
-and touches only `config.yaml` (which the repo's own README says to fill in).
+also the actual assignment submission for a class, and while the assignment
+was live, the rule here was **never modify `search_mask.py`,
+`finetune_with_mask.py`, `parse_args.py`, `data/`, or `utilities/`** (the
+assignment required running the authors' code unmodified), with everything
+new confined to `orchestration/`, `WSL_ROCM_SETUP.md`, `data_splits_papila/`,
+and `config.yaml`.
+
+**That rule is now waived.** The assignment has been submitted; core files
+are being edited in place for a post-submission research extension —
+generalizing the paper's hardcoded 4-group `age_sex` intersectional-fairness
+pattern into an N-way mechanism, across PAPILA and a second dataset
+(Harvard-GF glaucoma). See `INTERSECTIONAL_FAIRNESS_PLAN.md` for the design
+and status. Data now lives in per-dataset split directories:
+`data_splits_papila/` (PAPILA) and `data_splits_glaucoma/` (Harvard-GF).
 
 ## Why this exists
 
@@ -52,10 +61,12 @@ prove out.
 4. Only once that's clean: the real, screen-recorded run —
    `./orchestration/run_pipeline.sh all` (both `gender` and `age`, full
    epochs/trials). One command, one terminal — this is what gets recorded.
-5. `data_splits/*.csv` are already generated and committed (deterministic
-   given fixed seeds — verified train=294/val=84/test=42 rows). Only run
-   `preprocess_papila.py` again if you need to regenerate them; it's
-   idempotent and skips if the CSVs already exist.
+5. `data_splits_papila/*.csv` are already generated and committed
+   (deterministic given fixed seeds — verified train=294/val=84/test=42
+   rows). Only run `preprocess_papila.py` again if you need to regenerate
+   them; it's idempotent and skips if the CSVs already exist.
+   `data_splits_glaucoma/*.csv` (Harvard-GF) are built the same way by
+   `preprocess_glaucoma.py` — see `INTERSECTIONAL_FAIRNESS_PLAN.md`.
 6. `config.yaml` is deliberately left unfilled in this repo — `run_pipeline.sh
    all`/`config` fills it automatically with paths that are correct on
    *this* machine. Don't hand-edit it.

@@ -1,8 +1,16 @@
 # FairTune itself ships no requirements.txt. This is the set of third-party
 # packages actually imported across its .py files plus this orchestration
-# layer's preprocessing script. Install AFTER the ROCm PyTorch wheels from
+# layer's preprocessing scripts. Install AFTER the ROCm PyTorch wheels from
 # repo.radeon.com (see ../WSL_ROCM_SETUP.md) — do not let this pull in a
 # CUDA/CPU-only torch build.
+#
+# Data provenance: preprocess_papila.py consumes the raw PAPILA release
+# (../../Papila/, ClinicalData/ + FundusImages/). preprocess_glaucoma.py
+# consumes the raw Harvard-GF release, downloaded directly (no account/token
+# needed) from:
+#   https://huggingface.co/datasets/harvardairobotics/Harvard-GF/resolve/main/Dataset/dataset.zip
+# See INTERSECTIONAL_FAIRNESS_PLAN.md's "Data acquisition" section for how
+# that was confirmed and what the extracted files look like.
 timm
 optuna
 loralib
@@ -10,5 +18,7 @@ fairlearn
 wandb
 pyyaml
 pandas
+numpy
+pillow
 scikit-learn
 openpyxl

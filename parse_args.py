@@ -428,6 +428,44 @@ def get_args_parser(add_help=True):
         action="store_true",
     )
 
+    # SENSITIVITY-RANKING MASK SEARCH ARGUMENTS (search_mask_sensitivity.py)
+    parser.add_argument(
+        "--rank_method",
+        type=str,
+        default="worst_group_sensitivity",
+        choices=["worst_group_sensitivity", "erm_sensitivity", "random"],
+        help="How to rank the 36 mask components before the nested k-sweep",
+    )
+    parser.add_argument(
+        "--sensitivity_num_batches",
+        type=int,
+        default=None,
+        help="Number of train-loader batches used for the one-shot sensitivity scoring pass "
+        "(default: None, meaning exactly one full epoch of the train loader)",
+    )
+    parser.add_argument(
+        "--sensitivity_normalize",
+        type=str,
+        default="param_count",
+        choices=["none", "param_count", "sqrt_param_count"],
+        help="How to normalize each mask component's raw sensitivity score by its parameter count",
+    )
+    parser.add_argument(
+        "--k_schedule",
+        metavar="K",
+        type=int,
+        nargs="+",
+        default=[1, 2, 3, 4, 6, 8, 12, 18, 24, 36],
+        help="Nested mask sizes to train and evaluate, in ascending order",
+    )
+    parser.add_argument(
+        "--sensitivity_seed",
+        type=int,
+        default=0,
+        help="Seed for the calibration-batch order, the random rank_method's permutation, "
+        "and (set globally at process start) the training-data order across the k-sweep",
+    )
+
     # FAIRPRUNE ARGUEMENTS
     parser.add_argument(
         "--pruning_ratio",

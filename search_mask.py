@@ -128,6 +128,7 @@ def create_results_df(args):
         or args.sens_attribute == "age"
         or args.sens_attribute == "race"
         or args.sens_attribute == "age_sex"
+        or args.sens_attribute == "intersectional"
     ):
         if args.use_metric == "acc":
             test_results_df = pd.DataFrame(
@@ -646,6 +647,46 @@ def objective(trial):
                     device=device,
                 )
 
+        elif args.sens_attribute == "intersectional":
+            if args.cal_equiodds:
+                (
+                    val_acc,
+                    val_acc_groups,
+                    val_auc,
+                    val_auc_groups,
+                    val_loss,
+                    val_max_loss,
+                    val_group_counts,
+                    equiodds_diff,
+                    equiodds_ratio,
+                    dpd,
+                    dpr,
+                ) = evaluate_fairness_intersectional(
+                    model,
+                    criterion,
+                    ece_criterion,
+                    data_loader_val,
+                    args=args,
+                    device=device,
+                )
+            else:
+                (
+                    val_acc,
+                    val_acc_groups,
+                    val_auc,
+                    val_auc_groups,
+                    val_loss,
+                    val_max_loss,
+                    val_group_counts,
+                ) = evaluate_fairness_intersectional(
+                    model,
+                    criterion,
+                    ece_criterion,
+                    data_loader_val,
+                    args=args,
+                    device=device,
+                )
+
         else:
             raise NotImplementedError("Sensitive attribute not implemented")
 
@@ -1066,6 +1107,62 @@ def objective(trial):
         print("val AgeSex Group 2 AUC: ", val_auc_type2)
         print("val AgeSex Group 3 AUC: ", val_auc_type3)
 
+    elif args.sens_attribute == "intersectional":
+        if args.cal_equiodds:
+            (
+                val_acc,
+                val_acc_groups,
+                val_auc,
+                val_auc_groups,
+                val_loss,
+                val_max_loss,
+                val_group_counts,
+                equiodds_diff,
+                equiodds_ratio,
+                dpd,
+                dpr,
+            ) = evaluate_fairness_intersectional(
+                model,
+                criterion,
+                ece_criterion,
+                data_loader_val,
+                args=args,
+                device=device,
+            )
+        else:
+            (
+                val_acc,
+                val_acc_groups,
+                val_auc,
+                val_auc_groups,
+                val_loss,
+                val_max_loss,
+                val_group_counts,
+            ) = evaluate_fairness_intersectional(
+                model,
+                criterion,
+                ece_criterion,
+                data_loader_val,
+                args=args,
+                device=device,
+            )
+
+        max_acc = max(val_acc_groups)
+        min_acc = min(val_acc_groups)
+        acc_diff = abs(max_acc - min_acc)
+
+        max_auc = max(val_auc_groups)
+        min_auc = min(val_auc_groups)
+        auc_diff = abs(max_auc - min_auc)
+
+        print("\n")
+        print("val Group Accuracies: ", val_acc_groups)
+        print("val Group (correct, count): ", val_group_counts)
+        print("Difference in sub-group performance (Accuracy): ", acc_diff)
+
+        print("\n")
+        print("val Group AUCs: ", val_auc_groups)
+
     else:
         raise NotImplementedError("Sensitive attribute not implemented")
 
@@ -1109,6 +1206,7 @@ def objective(trial):
         or args.sens_attribute == "skin_type"
         or args.sens_attribute == "race"
         or args.sens_attribute == "age_sex"
+        or args.sens_attribute == "intersectional"
     ):
         if args.use_metric == "acc":
             _row = [

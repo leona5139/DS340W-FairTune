@@ -1,0 +1,13 @@
+Intersectional_Group,Age_binary,Sex,Race,count,count_train,count_val,count_test
+0,0,F,Asian,313,205,23,85
+1,0,F,Black or African American,284,200,19,65
+2,0,F,White or Caucasian,247,160,10,77
+3,0,M,Asian,277,182,18,77
+4,0,M,Black or African American,246,153,22,71
+5,0,M,White or Caucasian,165,113,10,42
+6,1,F,Asian,282,172,34,76
+7,1,F,Black or African American,325,198,30,97
+8,1,F,White or Caucasian,361,224,48,89
+9,1,M,Asian,228,141,25,62
+10,1,M,Black or African American,245,149,29,67
+11,1,M,White or Caucasian,327,203,32,92

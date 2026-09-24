@@ -1,0 +1,5 @@
+Intersectional_Group,Age_binary,Sex,count,count_train,count_val,count_test
+0,0,F,112,84,18,10
+1,0,M,58,34,14,10
+2,1,F,162,122,30,10
+3,1,M,88,54,22,12

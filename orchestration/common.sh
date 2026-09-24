@@ -2,12 +2,15 @@
 # Shared helpers for run_pipeline.sh. Sourced, not executed directly.
 
 # --- Tunable defaults, all overridable via environment variable ---------
-# BATCH_SIZE=42: search_mask.py hardcodes drop_last=False for papila, and
-# utilities/utils.py's accuracy_by_gender/accuracy_by_age divide by
-# per-subgroup batch counts with no zero-guard, so an uneven leftover batch
-# can crash with ZeroDivisionError. 42 evenly divides the split sizes
-# (train=294, val=84, test=42), avoiding the crash without touching repo code.
-: "${BATCH_SIZE:=42}"
+# BATCH_SIZE has no single default here: search_mask.py hardcodes
+# drop_last=False, and utilities/utils.py's per-subgroup accuracy/AUC
+# functions divide by per-subgroup batch counts with no zero-guard, so an
+# uneven leftover batch can crash with ZeroDivisionError. The safe value is
+# a divisor of the *current dataset's* split sizes, which differ by dataset
+# (PAPILA: 294/84/42, evenly divided by 42; glaucoma: see
+# INTERSECTIONAL_FAIRNESS_PLAN.md for its split sizes and chosen divisor) —
+# so run_pipeline.sh sets this per-dataset, after parsing --dataset, rather
+# than a single value being set here.
 
 # STAGE1_EPOCHS/STAGE1_NUM_TRIALS: the Colab version kept these at 5/10
 # specifically to fit inside a free-tier T4's session-time limit. That
@@ -25,6 +28,23 @@
 : "${WORKERS:=4}"
 
 : "${PRUNER:=SuccessiveHalving}"
+
+# --search-method sensitivity tunables (search_mask_sensitivity.py, the
+# SPT/GPS-style one-shot ranking that replaces Optuna/TPE -- see
+# fairtune-speedup-plan.md). SENSITIVITY_NUM_BATCHES left empty by default
+# means "exactly one full epoch of the train loader" (the Python script's
+# own default; see search_mask_sensitivity.py's compute_sensitivity_scores).
+# SENSITIVITY_LR exists because TPE searches --lr per trial
+# (1e-5..1e-3 log-uniform) but the k-sweep has no per-trial search to do
+# that job -- parse_args.py's shared --lr default (0.1) is a torchvision
+# boilerplate value nowhere near right for AdamW ViT fine-tuning, so this
+# stage passes an explicit, sane fixed value instead of relying on it.
+: "${SENSITIVITY_K_SCHEDULE:=1 2 3 4 6 8 12 18 24 36}"
+: "${SENSITIVITY_NUM_BATCHES:=}"
+: "${RANK_METHOD:=worst_group_sensitivity}"
+: "${SENSITIVITY_NORMALIZE:=param_count}"
+: "${SENSITIVITY_SEED:=0}"
+: "${SENSITIVITY_LR:=1e-4}"
 
 banner() {
     local title="$1"

@@ -1777,6 +1777,91 @@ def auc_by_age_sex(output, target, sens_attribute, topk=(1,)):
         return score, type0_score, type1_score, type2_score, type3_score
 
 
+def accuracy_by_intersectional_group(output, target, sens_attribute, num_groups, topk=(1,)):
+    """Generalized N-way version of accuracy_by_age_sex: loops over
+    `num_groups` intersectional groups (sens_attribute values 0..num_groups-1)
+    instead of unrolling exactly 4. Returns (res, group_res) where group_res
+    is a list of num_groups per-group `res`-shaped lists (one topk-indexed
+    accuracy each), in place of the fixed res_type0..res_type3.
+    """
+    with torch.inference_mode():
+        maxk = max(topk)
+        batch_size = target.size(0)
+        if target.ndim == 2:
+            target = target.max(dim=1)[1]
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target[None])
+
+        # Calculate accuracy for the whole dataset
+        res = []
+        for k in topk:
+            correct_k = correct[:k].flatten().sum(dtype=torch.float32)
+            res.append(correct_k * (100.0 / batch_size))
+
+        # Calculate accuracy for each intersectional group
+        group_res = []
+        for g in range(num_groups):
+            type_indices = [
+                i for i, _group in enumerate(sens_attribute) if _group == g
+            ]
+            type_correct = correct[:, type_indices]
+            res_type = []
+            for k in topk:
+                correct_k = type_correct[:k].flatten().sum(dtype=torch.float32)
+                try:
+                    res_type.append(correct_k * (100.0 / len(type_indices)))
+                except:
+                    res_type.append(torch.tensor(0.0))
+            group_res.append(res_type)
+
+        return res, group_res
+
+
+def auc_by_intersectional_group(output, target, sens_attribute, num_groups, topk=(1,)):
+    """Generalized N-way version of auc_by_age_sex. Returns (score, group_scores),
+    group_scores a list of num_groups plain AUC scalars (np.nan on a
+    too-small/single-class group), in place of the fixed type0_score..type3_score.
+    """
+    with torch.inference_mode():
+        maxk = max(topk)
+        batch_size = target.size(0)
+        if target.ndim == 2:
+            target = target.max(dim=1)[1]
+
+        maxk = 1
+        pos_label = 1
+
+        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        target = target.cpu().detach().data
+
+        if output_with_softmax.shape[1] == 2:
+            output_with_softmax = output_with_softmax[:, 1]
+
+        try:
+            score = sklm.roc_auc_score(target, output_with_softmax, multi_class="ovr")
+        except:
+            score = np.nan
+
+        group_scores = []
+        for g in range(num_groups):
+            try:
+                type_indices = [
+                    i for i, _group in enumerate(sens_attribute) if _group == g
+                ]
+                type_output = output_with_softmax[type_indices]
+                type_target = target[type_indices]
+                type_score = sklm.roc_auc_score(
+                    type_target, type_output, multi_class="ovr"
+                )
+            except:
+                type_score = np.nan
+            group_scores.append(type_score)
+
+        return score, group_scores
+
+
 def accuracy_by_race_binary(output, target, sens_attribute, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k
     for the whole dataset and different age groups separately.
