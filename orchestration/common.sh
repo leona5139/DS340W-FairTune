@@ -104,3 +104,17 @@ discover_mask() {
     fi
     echo "$mask"
 }
+
+# best_lr REPO_DIR DATASET SENS_ATTR — learning rate of the best Optuna trial
+# (last column of the one data row in Best_Params<attr>_auto_peft1_vit_base_min_auc.csv).
+# Used by Stage 2 so the finetune does not fall back to parse_args' default
+# lr of 0.1 (which collapsed the earlier PAPILA run to AUC 0.5).
+best_lr() {
+    local repo_dir="$1" dataset="$2" attr="$3"
+    local f="${repo_dir}/vit_base/${dataset}/Optuna Run Stats/Best_Params${attr}_auto_peft1_vit_base_min_auc.csv"
+    if [[ ! -f "$f" ]]; then
+        echo "ERROR: ${f} not found -- cannot read the best Optuna lr (pass --lr to override)" >&2
+        return 1
+    fi
+    tail -n 1 "$f" | awk -F, '{print $NF}'
+}

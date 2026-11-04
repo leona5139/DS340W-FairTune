@@ -54,10 +54,21 @@ from utilities.sampler import RASampler
 COMPONENT_TYPE_NAMES = {0: "layernorm", 1: "attention", 2: "mlp"}
 
 
+_PRETRAINED_STATE = {}
+
+
 def create_model(args):
     print("Creating model")
     print("TUNING METHOD: ", args.tuning_method)
-    model = utils.get_timm_model(args.model, num_classes=args.num_classes)
+    # The k-sweep builds a fresh model per k; load the pretrained timm
+    # weights from disk once and copy them after that (identical weights).
+    key = (args.model, args.num_classes)
+    if key in _PRETRAINED_STATE:
+        model = utils.get_timm_model(args.model, num_classes=args.num_classes, pretrained=False)
+        model.load_state_dict(_PRETRAINED_STATE[key])
+    else:
+        model = utils.get_timm_model(args.model, num_classes=args.num_classes)
+        _PRETRAINED_STATE[key] = {k: v.detach().clone() for k, v in model.state_dict().items()}
 
     custom_keys_weight_decay = []
     if args.bias_weight_decay is not None:
@@ -125,6 +136,8 @@ def define_dataloaders(args):
         batch_size=args.batch_size,
         sampler=train_sampler,
         num_workers=args.workers,
+        persistent_workers=args.workers > 0,
+        prefetch_factor=4 if args.workers > 0 else None,
         pin_memory=True,
         collate_fn=collate_fn,
         drop_last=drop_last,
@@ -134,6 +147,8 @@ def define_dataloaders(args):
         batch_size=args.batch_size,
         sampler=val_sampler,
         num_workers=args.workers,
+        persistent_workers=args.workers > 0,
+        prefetch_factor=4 if args.workers > 0 else None,
         pin_memory=True,
     )
     data_loader_test = torch.utils.data.DataLoader(
@@ -141,6 +156,8 @@ def define_dataloaders(args):
         batch_size=args.batch_size,
         sampler=test_sampler,
         num_workers=args.workers,
+        persistent_workers=args.workers > 0,
+        prefetch_factor=4 if args.workers > 0 else None,
         pin_memory=True,
         drop_last=False,
     )
@@ -350,9 +367,13 @@ def run_k_sweep_trial(args, ranking, k, data_loader, data_loader_val, device):
         elif args.dataset == "papila":
             weight = torch.tensor([0.20714285714285716, 0.7928571428571428])
         else:
-            raise NotImplementedError("Class weights not calculated for this dataset")
-        weight = weight.to(device)
-        print("Using CW Loss with weights: ", weight)
+            # Weights are never applied to the criterion below anyway (see
+            # module docstring), so unsupported datasets just skip them
+            # instead of raising like search_mask.py does.
+            weight = None
+        if weight is not None:
+            weight = weight.to(device)
+            print("Using CW Loss with weights: ", weight)
     else:
         weight = None
 
@@ -820,8 +841,19 @@ def run_k_sweep_trial(args, ranking, k, data_loader, data_loader_val, device):
         min_acc = min(val_acc_groups)
         acc_diff = abs(max_acc - min_acc)
 
-        max_auc = max(val_auc_groups)
-        min_auc = min(val_auc_groups)
+        # Groups whose val AUC is undefined (single-class / empty, returned as
+        # nan by auc_by_intersectional_group) must not enter min()/max():
+        # Python's min/max with a nan is order-dependent and silently
+        # corrupts the min_auc selection objective. Exclude and log them.
+        _auc_arr = np.array(val_auc_groups, dtype=float)
+        _nan_groups = [g for g, v in enumerate(_auc_arr) if np.isnan(v)]
+        if _nan_groups:
+            print(f"WARNING: val AUC undefined for group(s) {_nan_groups}; excluded from min/max AUC")
+        if np.all(np.isnan(_auc_arr)):
+            max_auc = min_auc = float("nan")
+        else:
+            max_auc = float(np.nanmax(_auc_arr))
+            min_auc = float(np.nanmin(_auc_arr))
         auc_diff = abs(max_auc - min_auc)
 
         print("\n")
@@ -910,6 +942,8 @@ if __name__ == "__main__":
     if "auc" in args.objective_metric:
         args.use_metric = "auc"
 
+    set_amp_dtype(args)
+    _t_total_start = time.time()
     args.distributed = False
     if args.use_deterministic_algorithms:
         torch.backends.cudnn.benchmark = False
@@ -922,10 +956,12 @@ if __name__ == "__main__":
     data_loader, data_loader_val, data_loader_test = define_dataloaders(args)
 
     print(f"\n=== Scoring the 36 mask components (rank_method={args.rank_method}) ===")
+    _t_scoring_start = time.time()
     scoring_model, _ = create_model(args)
     scoring_model.to(device)
     ranking, scores_df = compute_sensitivity_scores(args, scoring_model, data_loader, device)
     del scoring_model
+    _t_scoring_end = time.time()
 
     scores_savedir = os.path.join(args.model, args.dataset, "Sensitivity_Scores", args.sens_attribute)
     os.makedirs(scores_savedir, exist_ok=True)
@@ -948,6 +984,24 @@ if __name__ == "__main__":
     sweep_df.to_csv(sweep_path, index=False)
     print(f"Saved k-sweep results to {sweep_path}")
     print(sweep_df.to_string(index=False))
+
+    total_search_seconds = time.time() - _t_total_start
+    scoring_seconds = _t_scoring_end - _t_scoring_start
+    print(
+        f"SEARCH_TIMING total_seconds={total_search_seconds:.1f} "
+        f"scoring_seconds={scoring_seconds:.1f} sweep_train_seconds={sweep_df['wall_clock_seconds'].sum():.1f}"
+    )
+    pd.DataFrame(
+        [{
+            "rank_method": args.rank_method,
+            "sens_attribute": args.sens_attribute,
+            "seed": args.sensitivity_seed,
+            "total_seconds": total_search_seconds,
+            "scoring_seconds": scoring_seconds,
+            "sweep_train_seconds": float(sweep_df["wall_clock_seconds"].sum()),
+            "num_k": len(sweep_df),
+        }]
+    ).to_csv(os.path.join(results_savedir, f"timing_{args.rank_method}.csv"), index=False)
 
     higher_is_better = _is_higher_better(args.objective_metric)
     best_idx = (

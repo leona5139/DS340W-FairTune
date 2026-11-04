@@ -9,6 +9,8 @@ import random
 import yaml
 from PIL import Image
 
+from data.image_cache import cached_path
+
 
 class PapilaDataset(Dataset):
     def __init__(self, df, sens_attribute=None, transform=None):
@@ -19,6 +21,9 @@ class PapilaDataset(Dataset):
         self.sens_attribute = sens_attribute
         self.classes = self.get_num_classes()
         self.class_to_idx = self._get_class_to_idx()
+        # Built in the main process (before DataLoader workers fork) so the
+        # one-time downscale never races across workers.
+        self.paths = [cached_path(p) for p in self.df["Path"]]
 
     def __len__(self):
         return len(self.df)
@@ -33,7 +38,7 @@ class PapilaDataset(Dataset):
         }
 
     def __getitem__(self, idx):
-        image = read_image(self.df.iloc[idx]["Path"], mode=ImageReadMode.RGB)
+        image = read_image(self.paths[idx], mode=ImageReadMode.RGB)
         image = T.ToPILImage()(image)
         label = torch.tensor(self.df.iloc[idx]["Diagnosis"]).to(torch.int64)
 

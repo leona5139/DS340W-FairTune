@@ -25,6 +25,15 @@
 #                          (default: REPO_DIR/data_splits_papila or REPO_DIR/data_splits_glaucoma,
 #                          both already committed to the repo).
 #   --force-preprocess     Regenerate the CSVs even if they already exist.
+#   --mask-path PATH       Stage 2 only: use this mask instead of the most recent one under
+#                          Optuna_Masks/<attr>/ (e.g. evaluate a gender-searched mask on the
+#                          intersectional groups: stage2 intersectional --mask-path <gender mask>).
+#   --lr LR                Stage 2 learning rate override (default: sensitivity -> $SENSITIVITY_LR,
+#                          optuna -> best lr found by the Optuna search).
+# Env: AMP=1 turns on bf16 autocast in every training stage (see common.sh); ATTR "race"
+#      (glaucoma only) runs the 3-class race baseline through the N-group evaluator
+#      (--sens_attribute intersectional --group_cols Race), so its outputs land under
+#      Optuna_Masks/intersectional/ -- run_experiments.sh moves them out after every run.
 #
 # Examples:
 #   ./run_pipeline.sh all                                     # the real, recorded PAPILA run
@@ -46,6 +55,8 @@ HARVARD_DIR="${HOME}/fairtune_papila/data/harvard-dataset"
 SPLITS_DIR=""   # resolved after REPO_DIR/DATASET are finalized, see below
 SMOKE_TEST=0
 FORCE_PREPROCESS=0
+MASK_PATH_OVERRIDE=""
+LR_OVERRIDE=""
 ATTR="both"
 
 usage() {
@@ -70,6 +81,8 @@ while [[ $# -gt 0 ]]; do
         --harvard-dir) HARVARD_DIR="$2"; shift 2 ;;
         --splits-dir) SPLITS_DIR="$2"; shift 2 ;;
         --force-preprocess) FORCE_PREPROCESS=1; shift ;;
+        --mask-path) MASK_PATH_OVERRIDE="$2"; shift 2 ;;
+        --lr) LR_OVERRIDE="$2"; shift 2 ;;
         *) echo "Unknown option: $1" >&2; usage ;;
     esac
 done
@@ -116,9 +129,30 @@ fi
 
 case "$ATTR" in
     gender|age|intersectional) ATTRS=("$ATTR") ;;
+    race)
+        [[ "$DATASET" == "glaucoma" ]] || { echo "ATTR race is only available with --dataset glaucoma" >&2; exit 1; }
+        ATTRS=("$ATTR") ;;
     both) ATTRS=(gender age) ;;
-    *) echo "ATTR must be gender, age, intersectional, or both (got: $ATTR)" >&2; exit 1 ;;
+    *) echo "ATTR must be gender, age, race, intersectional, or both (got: $ATTR)" >&2; exit 1 ;;
 esac
+
+# attr_args ATTR -> sets SENS_ATTR (the --sens_attribute value) and EXTRA_ATTR_ARGS.
+attr_args() {
+    EXTRA_ATTR_ARGS=()
+    if [[ "$1" == "race" ]]; then
+        SENS_ATTR="intersectional"
+        EXTRA_ATTR_ARGS=(--group_cols Race)
+    else
+        SENS_ATTR="$1"
+    fi
+}
+
+# Class weights are only defined for papila (see search_mask.py); passing
+# --compute_cw on glaucoma crashes the search/finetune scripts.
+CW_ARGS=()
+[[ "$DATASET" == "papila" ]] && CW_ARGS=(--compute_cw)
+AMP_ARGS=()
+[[ "${AMP:-0}" == "1" ]] && AMP_ARGS=(--amp --amp_dtype bf16)
 
 do_preprocess() {
     if [[ -f "${SPLITS_DIR}/train.csv" && -f "${SPLITS_DIR}/val.csv" && -f "${SPLITS_DIR}/test.csv" && "$FORCE_PREPROCESS" -eq 0 ]]; then
@@ -159,6 +193,7 @@ do_verify_env() {
 
 do_stage1() {
     local attr="$1"
+    attr_args "$attr"
     do_verify
     if [[ "$SEARCH_METHOD" == "optuna" ]]; then
         banner "STAGE 1 — mask search, Optuna/TPE (sens_attribute=${attr})" \
@@ -168,10 +203,10 @@ do_stage1() {
             run_cmd "$PY_BIN" search_mask.py \
                 --model vit_base \
                 --dataset "$DATASET" \
-                --sens_attribute "$attr" \
+                --sens_attribute "$SENS_ATTR" "${EXTRA_ATTR_ARGS[@]}" \
                 --tuning_method auto_peft1 \
                 --objective_metric min_auc \
-                --compute_cw \
+                "${CW_ARGS[@]}" "${AMP_ARGS[@]}" \
                 --num_trials "$STAGE1_NUM_TRIALS" \
                 --epochs "$STAGE1_EPOCHS" \
                 --batch-size "$BATCH_SIZE" \
@@ -192,10 +227,10 @@ do_stage1() {
             run_cmd "$PY_BIN" search_mask_sensitivity.py \
                 --model vit_base \
                 --dataset "$DATASET" \
-                --sens_attribute "$attr" \
+                --sens_attribute "$SENS_ATTR" "${EXTRA_ATTR_ARGS[@]}" \
                 --tuning_method auto_peft1 \
                 --objective_metric min_auc \
-                --compute_cw \
+                "${CW_ARGS[@]}" "${AMP_ARGS[@]}" \
                 --rank_method "$RANK_METHOD" \
                 --sensitivity_normalize "$SENSITIVITY_NORMALIZE" \
                 --sensitivity_seed "$SENSITIVITY_SEED" \
@@ -210,28 +245,41 @@ do_stage1() {
         )
     fi
     local mask
-    mask=$(discover_mask "$REPO_DIR" "$attr")
+    mask=$(discover_mask "$REPO_DIR" "$SENS_ATTR")
     echo "Discovered mask for ${attr}: ${mask}"
 }
 
 do_stage2() {
     local attr="$1"
+    attr_args "$attr"
     do_verify
-    local mask
-    mask=$(discover_mask "$REPO_DIR" "$attr")
+    local mask lr
+    if [[ -n "$MASK_PATH_OVERRIDE" ]]; then
+        mask="$MASK_PATH_OVERRIDE"
+    else
+        mask=$(discover_mask "$REPO_DIR" "$SENS_ATTR")
+    fi
+    if [[ -n "$LR_OVERRIDE" ]]; then
+        lr="$LR_OVERRIDE"
+    elif [[ "$SEARCH_METHOD" == "sensitivity" ]]; then
+        lr="$SENSITIVITY_LR"
+    else
+        lr=$(best_lr "$REPO_DIR" "$DATASET" "$SENS_ATTR")
+    fi
     banner "STAGE 2 — fine-tune with mask (sens_attribute=${attr})" \
-        "mask=${mask} epochs=${STAGE2_EPOCHS} batch_size=${BATCH_SIZE} workers=${WORKERS}"
+        "mask=${mask} lr=${lr} epochs=${STAGE2_EPOCHS} batch_size=${BATCH_SIZE} workers=${WORKERS}"
     (
         cd "$REPO_DIR"
         run_cmd "$PY_BIN" finetune_with_mask.py \
             --model vit_base \
             --dataset "$DATASET" \
-            --sens_attribute "$attr" \
+            --sens_attribute "$SENS_ATTR" "${EXTRA_ATTR_ARGS[@]}" \
             --tuning_method auto_peft1 \
             --mask_path "$mask" \
+            --lr "$lr" \
             --cal_equiodds \
             --use_metric auc \
-            --compute_cw \
+            "${CW_ARGS[@]}" "${AMP_ARGS[@]}" \
             --epochs "$STAGE2_EPOCHS" \
             --batch-size "$BATCH_SIZE" \
             --workers "$WORKERS" \

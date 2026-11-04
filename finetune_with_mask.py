@@ -77,6 +77,35 @@ def create_results_df(args):
     return test_results_df
 
 
+def _nan_extremes(group_aucs, split):
+    """(max, min) over per-group AUCs, ignoring groups whose AUC is undefined
+    (nan: empty or single-class group). Python's min/max with a nan is
+    order-dependent, which would silently corrupt the reported worst-group AUC."""
+    arr = np.array(group_aucs, dtype=float)
+    bad = [g for g, v in enumerate(arr) if np.isnan(v)]
+    if bad:
+        print(f"WARNING: {split} AUC undefined for group(s) {bad}; excluded from best/worst AUC")
+    if np.all(np.isnan(arr)):
+        return float("nan"), float("nan")
+    return float(np.nanmax(arr)), float(np.nanmin(arr))
+
+
+def _dump_test_predictions(model, loader, device, path):
+    """Save per-sample test softmax/label/group so orchestration/summarize_runs.py
+    can bootstrap CIs on per-group AUC (the evaluate_* helpers only keep running
+    averages). One extra forward pass over the small test split."""
+    model.eval()
+    probs, labels, groups = [], [], []
+    with torch.inference_mode():
+        for image, target, sens_attr in loader:
+            out = model(image.to(device))
+            probs.append(torch.softmax(out, dim=1)[:, 1].float().cpu().numpy())
+            labels.append(target.numpy())
+            groups.append(np.asarray(sens_attr))
+    np.savez(path, prob=np.concatenate(probs), label=np.concatenate(labels), group=np.concatenate(groups))
+    print("Saved test predictions to", path)
+
+
 def main(args):
     assert args.sens_attribute is not None, "Sensitive attribute not provided"
 
@@ -97,6 +126,7 @@ def main(args):
         test_results_df = create_results_df(args)
 
     utils.init_distributed_mode(args)
+    set_amp_dtype(args)
     print(args)
 
     device = torch.device(args.device)
@@ -147,6 +177,8 @@ def main(args):
         batch_size=args.batch_size,
         sampler=train_sampler,
         num_workers=args.workers,
+        persistent_workers=args.workers > 0,
+        prefetch_factor=4 if args.workers > 0 else None,
         pin_memory=True,
         collate_fn=collate_fn,
         drop_last=drop_last,
@@ -156,6 +188,8 @@ def main(args):
         batch_size=args.batch_size,
         sampler=val_sampler,
         num_workers=args.workers,
+        persistent_workers=args.workers > 0,
+        prefetch_factor=4 if args.workers > 0 else None,
         pin_memory=True,
         # drop_last=True
     )
@@ -164,6 +198,8 @@ def main(args):
         batch_size=args.batch_size,
         sampler=test_sampler,
         num_workers=args.workers,
+        persistent_workers=args.workers > 0,
+        prefetch_factor=4 if args.workers > 0 else None,
         pin_memory=True,
         drop_last=False,
     )
@@ -219,8 +255,14 @@ def main(args):
             weight = torch.tensor([0.04361966711306677, 0.9563803328869332])
         elif args.dataset == "papila":
             weight = torch.tensor([0.20714285714285716, 0.7928571428571428])
-        weight = weight.to(device)
-        print("Using CW Loss with weights: ", weight)
+        else:
+            # Class weights are only defined for ol3i/papila; other datasets
+            # (e.g. Harvard-GF) train unweighted instead of crashing.
+            print(f"No class weights defined for {args.dataset}; training unweighted")
+            weight = None
+        if weight is not None:
+            weight = weight.to(device)
+            print("Using CW Loss with weights: ", weight)
     else:
         weight = None
 
@@ -611,8 +653,7 @@ def main(args):
                 best_val_acc = max(val_acc_groups)
                 worst_val_acc = min(val_acc_groups)
 
-                best_val_auc = max(val_auc_groups)
-                worst_val_auc = min(val_auc_groups)
+                best_val_auc, worst_val_auc = _nan_extremes(val_auc_groups, "val")
 
                 print(
                     "Val Acc: {:.2f}, Val Group Accs: {}, Val Loss: {:.2f}, Val MAX LOSS: {:.2f}".format(
@@ -894,6 +935,10 @@ def main(args):
             print("\n")
             print("Overall Test AUC: ", test_auc)
             print("Test Group AUCs: ", test_auc_groups)
+            _dump_test_predictions(
+                model, data_loader_test, device,
+                os.path.join(args.output_dir, "test_predictions_intersectional.npz"),
+            )
 
             if args.cal_equiodds:
                 print("\n")
@@ -1031,8 +1076,7 @@ def main(args):
             assert args.use_metric == "auc"
             assert args.cal_equiodds is not None
 
-            best_auc = max(test_auc_groups)
-            worst_auc = min(test_auc_groups)
+            best_auc, worst_auc = _nan_extremes(test_auc_groups, "test")
 
             new_row2 = [
                 args.tuning_method,

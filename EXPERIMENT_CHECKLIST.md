@@ -101,3 +101,30 @@ Analysis:
   not a real finding.
 - Total run count for this pass: 24 core Phase 1 + up to 12 ablation + 4
   Phase 2 = ~40 runs.
+
+---
+
+## Run-prep changes (post-review) and how to run
+
+Fixed before first GPU run: Stage 2 now passes `--lr` (it used parse_args' 0.1 and collapsed to AUC 0.5);
+`--compute_cw` is passed only for PAPILA (it crashed Harvard-GF); `race` single-attribute baseline for
+Harvard-GF runs through the N-group evaluator (`--group_cols Race`); NaN per-group AUCs (single-class
+groups) are excluded from min/max instead of corrupting `min_auc`.
+
+Runtime (no change to results): downscaled PAPILA image cache (`data/image_cache.py`,
+`FAIRTUNE_IMG_CACHE_SHORT_SIDE=0` disables for the paired check), persistent DataLoader workers,
+pretrained weights loaded once per sweep, optional bf16 (`AMP=1`; verify against fp32 first).
+
+```
+# Phase 0: smoke + timing
+./orchestration/run_experiments.sh phase1 --smoke-test --dataset papila --seeds-papila 0
+# Real grid (resumable; outputs isolated under runs/, timings in runs/timings.csv)
+./orchestration/run_experiments.sh phase1
+./orchestration/run_experiments.sh calibration     # one 50-trial TPE per dataset (gender)
+./orchestration/run_experiments.sh ablation
+./orchestration/run_experiments.sh phase2          # intersectional + core ablation + baselines
+python3 orchestration/summarize_runs.py
+```
+Use `--dry-run` to list every command first. Phase 2 core ablation = Stage 2 on the intersectional
+groups with each Phase-1 single-attribute mask; the claim needs |paired diff| > seed SD and a bootstrap CI excluding 0.
+Known limits: PAPILA intersectional test set has a 0-positive group (feasibility result only); TPE has no seed flag.

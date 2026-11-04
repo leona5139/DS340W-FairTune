@@ -58,7 +58,7 @@ def train_one_epoch(
         start_time = time.time()
         image, target = image.to(device), target.to(device)
 
-        with torch.cuda.amp.autocast(enabled=scaler is not None):
+        with torch.autocast("cuda", dtype=AMP_DTYPE, enabled=scaler is not None):
             output = model(image)
             loss = criterion(output, target)
             # Calculate the gradients here manually
@@ -131,7 +131,7 @@ def train_one_epoch_fairness(
         #tol_target += target.tolist()
         
 
-        with torch.cuda.amp.autocast(enabled=scaler is not None):
+        with torch.autocast("cuda", dtype=AMP_DTYPE, enabled=scaler is not None):
 
             output = model(image)
             tol_output += output.tolist()
@@ -547,7 +547,7 @@ def train_one_epoch_fairness_FSCL(
             sens_attr = [0 if x == "M" else 1 for x in sens_attr]
             sens_attr = torch.tensor(sens_attr)
 
-        with torch.cuda.amp.autocast(enabled=scaler is not None):
+        with torch.autocast("cuda", dtype=AMP_DTYPE, enabled=scaler is not None):
             features = model(images)
             f1, f2 = torch.split(features, [bsz, bsz], dim=0)
             features = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
@@ -620,7 +620,7 @@ def train_one_epoch_fairness_FSCL_classifier(
 
         bsz = target.shape[0]
 
-        with torch.cuda.amp.autocast(enabled=scaler is not None):
+        with torch.autocast("cuda", dtype=AMP_DTYPE, enabled=scaler is not None):
             with torch.no_grad():
                 features = model.encoder(image)
 
@@ -1262,7 +1262,7 @@ def meta_train_one_epoch(
         start_time = time.time()
         image, target = image.to(device), target.to(device)
 
-        with torch.cuda.amp.autocast(enabled=scaler is not None):
+        with torch.autocast("cuda", dtype=AMP_DTYPE, enabled=scaler is not None):
             output = model(image)
             loss = criterion(output, target)
             ece_loss = ece_criterion(output, target)
@@ -2849,10 +2849,38 @@ class TwoCropTransform:
         return [self.transform(x), self.transform(x)]
 
 
+AMP_DTYPE = torch.float16
+
+
+def set_amp_dtype(args):
+    """Select the autocast dtype used by every train loop when --amp is on."""
+    global AMP_DTYPE
+    AMP_DTYPE = torch.bfloat16 if getattr(args, "amp_dtype", "fp16") == "bf16" else torch.float16
+
+
+def _rebuild_intersectional_group(args, df, df_val, df_test):
+    """--group_cols: recompute Intersectional_Group from a subset of columns using
+    one shared cartesian-product numbering across train/val/test (same scheme as
+    orchestration/intersectional_utils.build_intersectional_group)."""
+    cols = args.group_cols
+    allvals = pd.concat([d[cols] for d in (df, df_val, df_test)])
+    cats = [sorted(allvals[c].unique().tolist(), key=str) for c in cols]
+    sizes = [len(c) for c in cats]
+    for d in (df, df_val, df_test):
+        gid = np.zeros(len(d), dtype=np.int64)
+        for c, cat in zip(cols, cats):
+            gid = gid * len(cat) + d[c].map({v: i for i, v in enumerate(cat)}).to_numpy()
+        d["Intersectional_Group"] = gid
+    args.num_sens_groups = int(np.prod(sizes))
+    print(f"--group_cols {cols}: {args.num_sens_groups} groups (categories: {cats})")
+
+
 def load_fairness_data(args, df, df_val, df_test):
     print("Loading fairness data")
 
-    if args.sens_attribute == "intersectional":
+    if args.sens_attribute == "intersectional" and getattr(args, "group_cols", None):
+        _rebuild_intersectional_group(args, df, df_val, df_test)
+    elif args.sens_attribute == "intersectional":
         # Computed once, from the training CSV, before any per-dataset
         # dataset-class construction below -- both PapilaDataset and
         # HarvardGlaucoma just read the already-assigned Intersectional_Group

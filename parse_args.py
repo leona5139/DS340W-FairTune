@@ -217,6 +217,14 @@ def get_args_parser(add_help=True):
         help="Use torch.cuda.amp for mixed precision training",
     )
 
+    parser.add_argument(
+        "--amp_dtype",
+        type=str,
+        default="fp16",
+        choices=["fp16", "bf16"],
+        help="Autocast dtype used when --amp is set (bf16 recommended on RDNA4)",
+    )
+
     # distributed training parameters
     parser.add_argument(
         "--world-size", default=1, type=int, help="number of distributed processes"
@@ -426,6 +434,16 @@ def get_args_parser(add_help=True):
         "--use_multi_objective",
         help="Use multi-objective optimization for HPO",
         action="store_true",
+    )
+
+    parser.add_argument(
+        "--group_cols",
+        type=str,
+        nargs="+",
+        default=None,
+        help="With --sens_attribute intersectional: rebuild Intersectional_Group from just "
+        "these CSV columns (e.g. --group_cols Race gives the single-attribute 3-class race "
+        "baseline for Harvard-GF using the same N-group evaluator)",
     )
 
     # SENSITIVITY-RANKING MASK SEARCH ARGUMENTS (search_mask_sensitivity.py)
