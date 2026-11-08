@@ -1389,6 +1389,91 @@ def evaluate(
     return metric_logger.acc1.global_avg, loss, auc
 
 
+def _pooled_fairness_metrics(prob_pos, target, pred, groups, group_values):
+    """Whole-split accuracy/AUC/fairness metrics, computed once over every
+    sample the evaluator saw.
+
+    The original evaluators computed AUC inside each batch and averaged the
+    per-batch values. With small groups (e.g. Harvard-GF's 12 age x sex x race
+    groups at batch 30, ~2-3 samples per group per batch) most per-batch group
+    AUCs are undefined (single class) or come from 2-3 points, so the average
+    was mostly noise. Pooling first gives the standard per-group AUC.
+
+    A group's AUC is NaN if it is empty or single-class in this split; callers
+    already exclude NaN groups (_nan_extremes / nanmin).
+    """
+    from sklearn.metrics import roc_auc_score
+
+    prob_pos = np.asarray(prob_pos, dtype=float)
+    target = np.asarray(target).astype(int)
+    pred = np.asarray(pred).astype(int)
+    groups = np.asarray(groups)
+
+    def _auc(m):
+        if m.sum() == 0 or np.unique(target[m]).size < 2:
+            return float("nan")
+        return float(roc_auc_score(target[m], prob_pos[m]))
+
+    def _acc(m):
+        return float(100.0 * (pred[m] == target[m]).mean()) if m.sum() > 0 else 0.0
+
+    everyone = np.ones(len(target), dtype=bool)
+    out = {
+        "acc": _acc(everyone),
+        "auc": _auc(everyone),
+        "group_acc": [_acc(groups == g) for g in group_values],
+        "group_auc": [_auc(groups == g) for g in group_values],
+        "group_n": [int((groups == g).sum()) for g in group_values],
+    }
+    target_t = torch.as_tensor(target)
+    for name, fn in (
+        ("equiodd_diff", utils.equiodds_difference),
+        ("equiodd_ratio", utils.equiodds_ratio),
+        ("dpd", utils.dpd),
+        ("dpr", utils.dpr),
+    ):
+        try:
+            out[name] = float(fn(pred, target_t, groups))
+        except Exception:
+            out[name] = float("nan")
+
+    print(
+        f"Pooled (whole-split) metrics: AUC {out['auc']:.3f} | per-group AUC "
+        + ", ".join(
+            f"{g}: {a:.3f} (n={n})" for g, a, n in zip(group_values, out["group_auc"], out["group_n"])
+        )
+    )
+    for g, a, n in zip(group_values, out["group_auc"], out["group_n"]):
+        if np.isnan(a):
+            print(f"WARNING: group {g} (n={n}) has no AUC on this split (empty or single-class); excluded")
+    return out
+
+
+def _pool_append(pool, pred_probs, preds, target, sens_attr):
+    """Accumulate one batch for _pooled_fairness_metrics (binary tasks)."""
+    assert pred_probs.shape[1] == 2, "pooled fairness metrics assume a binary task"
+    pool["prob"].append(pred_probs[:, 1])
+    pool["pred"].append(np.asarray(preds))
+    pool["target"].append(target.detach().cpu().numpy())
+    pool["group"].append(
+        sens_attr.cpu().numpy() if torch.is_tensor(sens_attr) else np.asarray(list(sens_attr))
+    )
+
+
+def _pool_finish(pool, group_values):
+    return _pooled_fairness_metrics(
+        np.concatenate(pool["prob"]),
+        np.concatenate(pool["target"]),
+        np.concatenate(pool["pred"]),
+        np.concatenate(pool["group"]),
+        group_values,
+    )
+
+
+def _new_pool():
+    return {"prob": [], "pred": [], "target": [], "group": []}
+
+
 def evaluate_fairness_gender(
     model,
     criterion,
@@ -1415,6 +1500,7 @@ def evaluate_fairness_gender(
     header = f"Test: {log_suffix}"
 
     num_processed_samples = 0
+    pool = _new_pool()
     with torch.inference_mode():
         for image, target, sens_attr in metric_logger.log_every(
             data_loader, print_freq, header
@@ -1430,8 +1516,9 @@ def evaluate_fairness_gender(
             else:
                 output = model(image)
 
-            pred_probs = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+            pred_probs = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
             preds = np.argmax(pred_probs, axis=1)
+            _pool_append(pool, pred_probs, preds, target, sens_attr)
             loss = criterion(output, target)
             ece_loss = ece_criterion(output, target)
 
@@ -1555,6 +1642,15 @@ def evaluate_fairness_gender(
     avg_dpd = metric_logger.dpd.global_avg
     avg_dpr = metric_logger.dpr.global_avg
 
+    # Replace the per-batch averages above with whole-split values.
+    pooled = _pool_finish(pool, ["M", "F"])
+    acc_avg = pooled["acc"]
+    male_acc_avg, female_acc_avg = pooled["group_acc"]
+    auc_avg = pooled["auc"]
+    male_auc_avg, female_auc_avg = pooled["group_auc"]
+    avg_e_diff, avg_e_ratio = pooled["equiodd_diff"], pooled["equiodd_ratio"]
+    avg_dpd, avg_dpr = pooled["dpd"], pooled["dpr"]
+
     if args.cal_equiodds:
         return (
             round(acc_avg, 3),
@@ -1624,7 +1720,7 @@ def evaluate_fairness_skin_type_binary(
             else:
                 output = model(image)
 
-            pred_probs = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+            pred_probs = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
             preds = np.argmax(pred_probs, axis=1)
             loss = criterion(output, target)
             ece_loss = ece_criterion(output, target)
@@ -1815,6 +1911,7 @@ def evaluate_fairness_age_binary(
     header = f"Test: {log_suffix}"
 
     num_processed_samples = 0
+    pool = _new_pool()
     with torch.inference_mode():
         for image, target, sens_attr in metric_logger.log_every(
             data_loader, print_freq, header
@@ -1830,16 +1927,18 @@ def evaluate_fairness_age_binary(
             else:
                 output = model(image)
 
-            pred_probs = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+            pred_probs = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
             preds = np.argmax(pred_probs, axis=1)
+            _pool_append(pool, pred_probs, preds, target, sens_attr)
             loss = criterion(output, target)
             ece_loss = ece_criterion(output, target)
 
-            loss_type1 = torch.mean(loss[sens_attr == 0])
-            loss_type2 = torch.mean(loss[sens_attr == 1])
-
-            total_loss_type1 += loss_type1.item()
-            total_loss_type2 += loss_type2.item()
+            # Skip a group's loss on batches where it is absent (mean of an
+            # empty tensor is NaN and would poison the running total).
+            if torch.sum(sens_attr == 0).item() > 0:
+                total_loss_type1 += torch.mean(loss[sens_attr == 0]).item()
+            if torch.sum(sens_attr == 1).item() > 0:
+                total_loss_type2 += torch.mean(loss[sens_attr == 1]).item()
 
             num_type1 += torch.sum(sens_attr == 0).item()
             num_type2 += torch.sum(sens_attr == 1).item()
@@ -1962,6 +2061,15 @@ def evaluate_fairness_age_binary(
     avg_dpd = metric_logger.dpd.global_avg
     avg_dpr = metric_logger.dpr.global_avg
 
+    # Replace the per-batch averages above with whole-split values.
+    pooled = _pool_finish(pool, [0, 1])
+    acc_avg = pooled["acc"]
+    acc_age0_avg, acc_age1_avg = pooled["group_acc"]
+    auc_avg = pooled["auc"]
+    auc_age0_avg, auc_age1_avg = pooled["group_auc"]
+    avg_e_diff, avg_e_ratio = pooled["equiodd_diff"], pooled["equiodd_ratio"]
+    avg_dpd, avg_dpr = pooled["dpd"], pooled["dpr"]
+
     if args.cal_equiodds:
         print("CAL EQUIODDS ENABLED")
         return (
@@ -2033,7 +2141,7 @@ def evaluate_fairness_race_binary(
             else:
                 output = model(image)
 
-            pred_probs = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+            pred_probs = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
             preds = np.argmax(pred_probs, axis=1)
             loss = criterion(output, target)
             ece_loss = ece_criterion(output, target)
@@ -2240,7 +2348,7 @@ def evaluate_fairness_age_sex(
             else:
                 output = model(image)
 
-            pred_probs = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+            pred_probs = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
             preds = np.argmax(pred_probs, axis=1)
             loss = criterion(output, target)
             ece_loss = ece_criterion(output, target)
@@ -2503,6 +2611,7 @@ def evaluate_fairness_intersectional(
     header = f"Test: {log_suffix}"
 
     num_processed_samples = 0
+    pool = _new_pool()
     with torch.inference_mode():
         for image, target, sens_attr in metric_logger.log_every(
             data_loader, print_freq, header
@@ -2516,8 +2625,9 @@ def evaluate_fairness_intersectional(
             else:
                 output = model(image)
 
-            pred_probs = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+            pred_probs = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
             preds = np.argmax(pred_probs, axis=1)
+            _pool_append(pool, pred_probs, preds, target, sens_attr)
             loss = criterion(output, target)
             ece_loss = ece_criterion(output, target)
 
@@ -2609,8 +2719,14 @@ def evaluate_fairness_intersectional(
     ]
 
     auc_avg = metric_logger.auc.global_avg
+    # A group whose AUC was undefined in every batch (single-class, e.g. PAPILA's
+    # 0-positive test group) has an empty meter; global_avg would report 0.0 for it,
+    # silently making it the "worst group". Report NaN so callers can exclude it.
     group_auc_avgs = [
-        round(metric_logger.meters[f"auc_Group{g}"].global_avg, 3) for g in range(num_groups)
+        round(metric_logger.meters[f"auc_Group{g}"].global_avg, 3)
+        if metric_logger.meters[f"auc_Group{g}"].count > 0
+        else float("nan")
+        for g in range(num_groups)
     ]
 
     # Equalized Odds and Equalized Opportunity
@@ -2619,6 +2735,15 @@ def evaluate_fairness_intersectional(
 
     avg_dpd = metric_logger.dpd.global_avg
     avg_dpr = metric_logger.dpr.global_avg
+
+    # Replace the per-batch averages above with whole-split values.
+    pooled = _pool_finish(pool, list(range(num_groups)))
+    acc_avg = pooled["acc"]
+    group_acc_avgs = [round(a, 3) for a in pooled["group_acc"]]
+    auc_avg = pooled["auc"]
+    group_auc_avgs = [round(a, 3) for a in pooled["group_auc"]]
+    avg_e_diff, avg_e_ratio = pooled["equiodd_diff"], pooled["equiodd_ratio"]
+    avg_dpd, avg_dpr = pooled["dpd"], pooled["dpr"]
 
     # Raw (correct_count, sample_count) per group -- the whole point of this
     # function existing separately from evaluate_fairness_age_sex.

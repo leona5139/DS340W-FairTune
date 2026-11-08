@@ -3,9 +3,9 @@
 
 Prints and saves to <runs>/summary_*.csv:
   1. Per (dataset, label, attr): Stage-1 seconds and test overall/best/worst AUC/diff, mean +- std over seeds.
-  2. Speed-up: TPE(10 trials) vs sensitivity Stage-1 wall-clock, plus an EXTRAPOLATED
-     full-budget TPE cost (scaled by the measured tpe50/tpe10 ratio of the calibration run).
-  3. Phase 2 core ablation (intersectional test groups): worst-group AUC of the
+  2. Experiment 1 vs 2/3: EXTRAPOLATED full-budget TPE cost (mean measured trial time of the
+     exp1 tpe_sample run x --tpe-full-trials, default 200) vs the measured sensitivity runtime.
+  3. (optional exp3_ablation) core ablation (intersectional test groups): worst-group AUC of the
      intersectional-searched mask vs single-attribute masks vs full-FT / head-only baselines,
      with paired seed differences and a paired bootstrap CI over test samples
      (needs test_predictions_intersectional.npz, saved by finetune_with_mask.py).
@@ -72,6 +72,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--runs-dir", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "runs"))
     ap.add_argument("--n-boot", type=int, default=1000)
+    ap.add_argument("--tpe-full-trials", type=int, default=int(os.environ.get("TPE_FULL_TRIALS", 200)),
+                    help="full TPE budget the exp1 sample is extrapolated to (paper: ~200)")
     args = ap.parse_args()
 
     timings = pd.read_csv(os.path.join(args.runs_dir, "timings.csv"))
@@ -89,42 +91,56 @@ def main():
                    stage1_s=t.stage1_seconds.iloc[-1] if len(t) else np.nan,
                    stage2_s=t.stage2_seconds.iloc[-1] if len(t) else np.nan)
         rows.append(res)
-    runs = pd.DataFrame(rows)
-    if runs.empty:
-        print("No finished runs found under", args.runs_dir)
-        return
+    cols = ["dataset", "label", "attr", "seed", "run_dir", "stage1_s", "stage2_s",
+            "train_pct", "lr", "auc_overall", "auc_best", "auc_worst", "auc_diff"]
+    runs = pd.DataFrame(rows, columns=cols)
+    pd.set_option("display.width", 250, "display.max_columns", 50)
 
     metrics = ["stage1_s", "stage2_s", "auc_overall", "auc_best", "auc_worst", "auc_diff"]
-    summ = runs.groupby(["dataset", "label", "attr"])[metrics].agg(["mean", "std", "count"]).round(3)
-    pd.set_option("display.width", 250, "display.max_columns", 50)
-    print("\n=== 1. Per-cell summary (mean/std over seeds) ===\n", summ.to_string())
-    summ.to_csv(os.path.join(args.runs_dir, "summary_cells.csv"))
+    if runs.empty:
+        print("\n=== 1. Per-cell summary ===\n(no finished runs with results yet)")
+    else:
+        summ = runs.groupby(["dataset", "label", "attr"])[metrics].agg(["mean", "std", "count"]).round(3)
+        print("\n=== 1. Per-cell summary (mean/std over seeds; times in seconds) ===\n", summ.to_string())
+        summ.to_csv(os.path.join(args.runs_dir, "summary_cells.csv"))
 
-    # 2. speed-up
-    print("\n=== 2. Stage-1 speed-up (sensitivity vs TPE) ===")
+    # 2. Experiment 1 extrapolation vs measured sensitivity runtime
+    print(f"\n=== 2. Original FairTune (TPE) cost, EXTRAPOLATED to {args.tpe_full_trials} trials, vs measured sensitivity ===")
     sp = []
-    for (ds, attr), g in runs.groupby(["dataset", "attr"]):
-        t10 = g[g.label == "tpe10"].stage1_s.mean()
-        ts = g[g.label == "sens_wg"].stage1_s.mean()
-        if np.isnan(t10) or np.isnan(ts):
+    for d in sorted(glob.glob(os.path.join(args.runs_dir, "*", "tpe_sample", "*", "seed*"))):
+        tfiles = glob.glob(os.path.join(d, "Optuna Run Stats", "Trial_Timing_*.csv"))
+        if not os.path.exists(os.path.join(d, "DONE")) or not tfiles:
             continue
-        sp.append({"dataset": ds, "attr": attr, "tpe10_s": t10, "sens_s": ts, "ratio_vs_tpe10": t10 / ts})
+        ds, _, attr, _ = d.split(os.sep)[-4:]
+        tt = pd.read_csv(tfiles[0])
+        if tt.empty:
+            continue
+        # search_mask.py reports to the pruner only after the full epoch loop, so every
+        # trial (pruned or not) trains all epochs: cost per trial is ~constant.
+        per_trial = tt.duration_seconds.mean()
+        rec = {"dataset": ds, "attr": attr, "tpe_trials_run": len(tt),
+               "tpe_epochs_per_trial": int(tt.epochs.iloc[0]),
+               "tpe_s_per_trial_mean": per_trial, "tpe_s_per_trial_std": tt.duration_seconds.std(ddof=1),
+               "tpe_s_per_epoch": tt.seconds_per_epoch.mean(),
+               "tpe_stage1_extrapolated_h": per_trial * args.tpe_full_trials / 3600}
+        sens = runs[(runs.dataset == ds) & (runs.label == "sens_wg") & (runs.attr == attr) & (runs.seed == 0)]
+        if len(sens):
+            s1, s2 = float(sens.stage1_s.iloc[0]), float(sens.stage2_s.iloc[0])
+            # TPE's Stage 2 is the same fine-tune (same epochs/batch) as sensitivity's.
+            rec.update(tpe_total_extrapolated_h=rec["tpe_stage1_extrapolated_h"] + s2 / 3600,
+                       sens_stage1_h=s1 / 3600, sens_total_h=(s1 + s2) / 3600)
+            rec["speedup_stage1"] = rec["tpe_stage1_extrapolated_h"] / rec["sens_stage1_h"]
+            rec["speedup_total"] = rec["tpe_total_extrapolated_h"] / rec["sens_total_h"]
+        sp.append(rec)
     sp = pd.DataFrame(sp)
-    for ds in sp.dataset.unique() if len(sp) else []:
-        cal = runs[(runs.dataset == ds) & (runs.label == "tpe50")].stage1_s.mean()
-        base = runs[(runs.dataset == ds) & (runs.label == "tpe10") & (runs.attr == "gender")].stage1_s.mean()
-        if not (np.isnan(cal) or np.isnan(base)):
-            f = cal / base
-            m = sp.dataset == ds
-            sp.loc[m, "tpe50_extrapolated_s"] = sp.loc[m, "tpe10_s"] * f
-            sp.loc[m, "ratio_vs_tpe50_extrapolated"] = sp.loc[m, "tpe50_extrapolated_s"] / sp.loc[m, "sens_s"]
-    print(sp.round(2).to_string(index=False) if len(sp) else "(need both tpe10 and sens_wg runs)")
-    print("NOTE: *_extrapolated columns scale tpe10 by the measured tpe50/tpe10 ratio (gender); label them 'extrapolated' in the paper.")
+    print(sp.round(3).to_string(index=False) if len(sp) else "(need exp1 tpe_sample runs; sens_wg seed-0 runs for the ratio)")
+    print(f"NOTE: tpe_*_extrapolated_h = mean measured trial time x {args.tpe_full_trials} trials; label it 'extrapolated' "
+          "in the paper. Sensitivity numbers are measured (seed 0). Timings are only valid for solo-GPU runs.")
     sp.to_csv(os.path.join(args.runs_dir, "summary_speedup.csv"), index=False)
 
-    # 3. Phase 2 core ablation
-    print("\n=== 3. Intersectional core ablation (test, intersectional groups) ===")
-    inter = runs[(runs.attr == "intersectional") & (runs.label != "tpe10")]
+    # 3. exp3_ablation core ablation
+    print("\n=== 3. (optional exp3_ablation) Intersectional core ablation (test, intersectional groups) ===")
+    inter = runs[(runs.attr == "intersectional") & (runs.label != "tpe_sample")]
     out = []
     for ds, g in inter.groupby("dataset"):
         ref = g[g.label == "sens_wg"].set_index("seed")
@@ -154,7 +170,7 @@ def main():
                 rec.update(boot_mean=b[:, 0].mean(), boot_ci_lo_mean=b[:, 1].mean(), boot_ci_hi_mean=b[:, 2].mean())
             out.append(rec)
     out = pd.DataFrame(out)
-    print(out.round(4).to_string(index=False) if len(out) else "(no Phase 2 runs yet)")
+    print(out.round(4).to_string(index=False) if len(out) else "(no exp3_ablation runs yet)")
     print("A gain counts only if |paired diff| > seed SD AND the (per-seed) bootstrap CI excludes 0.")
     print("NOTE: worst-group AUC ignores groups with a single class (NaN); check group counts in RESULTS_intersectional_groups_*.csv.")
     out.to_csv(os.path.join(args.runs_dir, "summary_phase2.csv"), index=False)

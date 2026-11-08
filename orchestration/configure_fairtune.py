@@ -89,6 +89,12 @@ def verify(repo_dir, dataset):
         csv_path = dataset_cfg[csv_key]
         assert os.path.exists(csv_path), f"{csv_key} path in config.yaml does not exist on disk: {csv_path}"
 
+    img_dir = dataset_cfg["img_path"]
+    assert os.path.isdir(img_dir) and os.listdir(img_dir), (
+        f"img_path in config.yaml is missing or empty: {img_dir} -- for glaucoma, rerun "
+        "`run_pipeline.sh config --dataset glaucoma` so preprocess_glaucoma.py builds RNFLT_png/"
+    )
+
     print(f"config.yaml['{dataset}'] verified valid:", dataset_cfg)
     return dataset_cfg
 

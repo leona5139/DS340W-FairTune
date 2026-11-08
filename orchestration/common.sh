@@ -20,27 +20,31 @@ fi
 [[ -z "$PY_BIN" ]] && PY_BIN="$(command -v python3 >/dev/null 2>&1 && echo python3 || echo python)"
 
 # --- Tunable defaults, all overridable via environment variable ---------
-# BATCH_SIZE has no single default here: search_mask.py hardcodes
-# drop_last=False, and utilities/utils.py's per-subgroup accuracy/AUC
-# functions divide by per-subgroup batch counts with no zero-guard, so an
-# uneven leftover batch can crash with ZeroDivisionError. The safe value is
-# a divisor of the *current dataset's* split sizes, which differ by dataset
-# (PAPILA: 294/84/42, evenly divided by 42; glaucoma: see
-# INTERSECTIONAL_FAIRNESS_PLAN.md for its split sizes and chosen divisor) —
-# so run_pipeline.sh sets this per-dataset, after parsing --dataset, rather
-# than a single value being set here.
+# BATCH_SIZE: run_pipeline.sh sets a per-dataset default after parsing
+# --dataset (PAPILA 42, Harvard-GF 30), kept from earlier runs so timings stay
+# comparable. It no longer has to divide the split sizes: the per-group
+# accuracy helpers are zero-guarded and the evaluators compute group
+# accuracy/AUC once over the whole split (training_utils._pooled_fairness_metrics),
+# so a short final batch or a batch missing a group is harmless.
 
-# STAGE1_EPOCHS/STAGE1_NUM_TRIALS/STAGE2_EPOCHS: a real timed run on this
-# machine measured ~10 min/trial at STAGE1_EPOCHS=15, which put the old
-# 15/20 defaults at 20+ hours for a single attribute — nowhere near the
-# assignment's 4-hour recording budget. Diagnostic-plot quality and mask
-# quality are both explicitly not goals here (see CLAUDE.md); the only
-# requirement is that Stage 1 produces *a* mask Stage 2 can load. These
-# values trade search depth for wall-clock time accordingly — raise them
-# back toward 15/20 only if there's time to spare.
-: "${STAGE1_EPOCHS:=5}"
+# STAGE1_EPOCHS/STAGE2_EPOCHS: 30, the FairTune paper's fine-tuning budget
+# (Sec. 4.1). Used for every TPE trial, every sensitivity k-sweep training and
+# the Stage 2 fine-tune, so all methods share one per-training cost. (Earlier
+# 5/8/5 defaults were a cut-down budget for the class's recorded run.)
+# STAGE1_NUM_TRIALS: run_pipeline.sh's own TPE default; run_experiments.sh
+# overrides it with TPE_SAMPLE_TRIALS for Experiment 1.
+# TPE_SAMPLE_TRIALS: trials actually run per (dataset, attr) in Experiment 1.
+# 5: every TPE trial trains the full epoch budget (pruning is only checked
+# after the last epoch), so trial cost is ~constant and only its mean is
+# needed; 5 trials (up from 3) steadies that mean for the 200-trial
+# extrapolation (summarize_runs.py prints the std to confirm).
+# TPE_FULL_TRIALS: budget the sample is extrapolated to (the paper's search
+# "saturated within 200 trials", Appendix A.1) by summarize_runs.py.
+: "${STAGE1_EPOCHS:=30}"
 : "${STAGE1_NUM_TRIALS:=8}"
-: "${STAGE2_EPOCHS:=5}"
+: "${STAGE2_EPOCHS:=30}"
+: "${TPE_SAMPLE_TRIALS:=5}"
+: "${TPE_FULL_TRIALS:=200}"
 
 # WORKERS: PyTorch DataLoader with num_workers>0 has a documented history of
 # silently deadlocking on ROCm, and can occasionally hang on other GPU/OS
@@ -50,6 +54,12 @@ fi
 : "${WORKERS:=4}"
 
 : "${PRUNER:=SuccessiveHalving}"
+
+# AMP=1 (default) turns on autocast in every training stage, for TPE and
+# sensitivity alike; AMP=0 for full fp32. AMP_DTYPE: bf16 (RDNA4, NVIDIA
+# Ampere / RTX 30xx and newer) or fp16 (older NVIDIA cards).
+: "${AMP:=1}"
+: "${AMP_DTYPE:=bf16}"
 
 # --search-method sensitivity tunables (search_mask_sensitivity.py, the
 # SPT/GPS-style one-shot ranking that replaces Optuna/TPE -- see

@@ -974,7 +974,9 @@ def accuracy_by_gender(output, target, sens_attribute, topk=(1,)):
         res_male = []
         for k in topk:
             correct_k = male_correct[:k].flatten().sum(dtype=torch.float32)
-            res_male.append(correct_k * (100.0 / len(male_indices)))
+            # Guard: a batch can contain no male samples (e.g. a short final
+            # batch); report 0.0 instead of raising ZeroDivisionError.
+            res_male.append(correct_k * (100.0 / len(male_indices)) if len(male_indices) > 0 else torch.tensor(0.0))
 
         # Calculate accuracy for the female population
         female_indices = [i for i, gender in enumerate(sens_attribute) if gender == "F"]
@@ -984,7 +986,9 @@ def accuracy_by_gender(output, target, sens_attribute, topk=(1,)):
         res_female = []
         for k in topk:
             correct_k = female_correct[:k].flatten().sum(dtype=torch.float32)
-            res_female.append(correct_k * (100.0 / len(female_indices)))
+            # Guard: a batch can contain no female samples (e.g. a short final
+            # batch); report 0.0 instead of raising ZeroDivisionError.
+            res_female.append(correct_k * (100.0 / len(female_indices)) if len(female_indices) > 0 else torch.tensor(0.0))
 
         return res, res_male, res_female
 
@@ -999,7 +1003,7 @@ def auc_by_gender(output, target, sens_attribute, topk=(1,)):
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         if output_with_softmax.shape[1] == 2:
@@ -1197,7 +1201,7 @@ def auc_by_skin_type(output, target, sens_attribute, topk=(1,), num_skin_types=6
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         # print("TARGET: ", target)
@@ -1311,7 +1315,7 @@ def auc_by_skin_type_binary(
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         if output_with_softmax.shape[1] == 2:
@@ -1447,7 +1451,7 @@ def auc_by_age(output, target, sens_attribute, topk=(1,)):
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         # If it is a binary classification, we need to convert the output to a shape (n_samples,). More info: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
@@ -1584,7 +1588,7 @@ def auc_by_age_binary(output, target, sens_attribute, topk=(1,)):
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         # If it is a binary classification, we need to convert the output to a shape (n_samples,). More info: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
@@ -1710,7 +1714,7 @@ def auc_by_age_sex(output, target, sens_attribute, topk=(1,)):
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         # If it is a binary classification, we need to convert the output to a shape (n_samples,). More info: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
@@ -1833,7 +1837,7 @@ def auc_by_intersectional_group(output, target, sens_attribute, num_groups, topk
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         if output_with_softmax.shape[1] == 2:
@@ -1920,7 +1924,7 @@ def auc_by_race_binary(output, target, sens_attribute, topk=(1,)):
         maxk = 1
         pos_label = 1
 
-        output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+        output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
         target = target.cpu().detach().data
 
         # If it is a binary classification, we need to convert the output to a shape (n_samples,). More info: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
@@ -2159,7 +2163,7 @@ def roc_auc_score_multiclass(output, target):
             target = target.max(dim=1)[1]
 
     maxk = 1
-    output_with_softmax = torch.softmax(output, dim=1).cpu().detach().data.numpy()
+    output_with_softmax = torch.softmax(output.float(), dim=1).cpu().detach().data.numpy()
     # best_prob, best_prob_idx = output_with_softmax.topk(maxk, 1, True, True)
     # best_prob = best_prob.t().flatten().cpu().detach().data.numpy()
     target = target.cpu().detach().data.numpy()

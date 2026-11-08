@@ -1,40 +1,64 @@
 #!/usr/bin/env bash
-# Experiment driver: runs the grid from EXPERIMENT_CHECKLIST.md with per-run
-# wall-clock timing and isolated outputs, on top of run_pipeline.sh.
+# Experiment driver (see RUN_GUIDE.md): per-run wall-clock timing and isolated
+# outputs, on top of run_pipeline.sh.
 #
 # Usage:
 #   ./run_experiments.sh PHASE [options]
-#     PHASE: phase1 | ablation | phase2 | calibration | all
-#       phase1       budget-matched TPE (10 trials) vs sensitivity (worst_group_sensitivity),
-#                    single attributes. papila: gender age; glaucoma: gender age race.
-#       ablation     sensitivity with rank_method random / erm_sensitivity (seed 0).
-#       phase2       intersectional sensitivity search, then the core ablation: Stage 2 on the
-#                    intersectional groups with each Phase-1 single-attribute mask, plus
-#                    full-fine-tune (all-ones) and head-only (all-zeros) mask baselines.
-#       calibration  ONE full-budget TPE (50 trials) on gender, used to extrapolate
-#                    full-budget cost for the other cells (labelled "extrapolated").
+#     PHASE:
+#       exp1           Original FairTune (TPE, search_mask.py), Stage 1 only, a SAMPLE of
+#                      $TPE_SAMPLE_TRIALS trials (default 5) per (dataset, attr), seed 0.
+#                      summarize_runs.py extrapolates it to $TPE_FULL_TRIALS (default 200).
+#                      papila: gender age intersectional; glaucoma: gender age race intersectional.
+#       exp2           Sensitivity search (worst_group_sensitivity) + Stage 2, single attributes,
+#                      every seed. papila: gender age; glaucoma: gender age race.
+#       exp3           Sensitivity search + Stage 2 on intersectional groups, every seed
+#                      (papila: age x sex = 4 groups; glaucoma: age x sex x race = 12).
+#       all            exp1, then exp2+exp3 interleaved seed-major (all seed-0 runs first,
+#                      so every runtime number is in before the extra seeds start).
+#       exp3_ablation  (optional, needs exp2+exp3) Stage 2 on the intersectional groups with
+#                      each exp2 single-attribute mask, plus full-FT (all-ones) and head-only
+#                      (all-zeros) masks.
+#       ablation       (optional) sensitivity with rank_method random / erm_sensitivity, seed 0.
 #   --dataset {papila|glaucoma|both}   (default both)
-#   --seeds-papila "0 1 2"  --seeds-glaucoma "0 1"
+#   --seeds-papila "0 1 2"  --seeds-glaucoma "0"   (defaults)
 #   --smoke-test           tiny epochs/trials (passed through to run_pipeline.sh)
 #   --dry-run              print the commands, run nothing
 #   --runs-dir DIR         default: <repo>/runs
 #
 # Layout: runs/<dataset>/<label>/<attr>/seed<N>/{outputs...,DONE}; every run also
 # appends one row to runs/timings.csv. Finished runs (DONE present) are skipped,
-# so the script is resumable. Timing rows are only trustworthy when one run is
-# on the GPU at a time: do not run two copies of this script concurrently for
-# the seed-0 (timing) runs.
+# so the script is resumable and seeds can be added later. Timing rows are only
+# trustworthy when one run is on the GPU at a time: never run two copies of this
+# script at once.
 #
-# TPE (search_mask.py) has no seed flag: its "seeds" are independent repeats.
+# TPE (search_mask.py) has no seed flag: its "seeds" would be independent repeats.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 PIPE="${SCRIPT_DIR}/run_pipeline.sh"
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"   # PY_BIN, TPE_SAMPLE_TRIALS
 
-PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,30p "$0"; exit 1; }; shift
+ORIG_ARGS=("$@")
+PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,35p "$0"; exit 1; }; shift
+
+# Keep the machine awake for the whole run (Linux + systemd only; a no-op elsewhere,
+# e.g. Windows Git Bash). A system suspend mid-training kills the job, and on AMD/ROCm
+# the GPU reset that follows can leave compute unusable until a reboot.
+# FAIRTUNE_NO_INHIBIT=1 skips this.
+if [[ -z "${FAIRTUNE_INHIBITED:-}" && -z "${FAIRTUNE_NO_INHIBIT:-}" && " ${ORIG_ARGS[*]} " != *" --dry-run "* ]]; then
+    INHIBIT_BIN="$(command -v systemd-inhibit || true)"
+    [[ -z "$INHIBIT_BIN" && -x /run/current-system/sw/bin/systemd-inhibit ]] && INHIBIT_BIN=/run/current-system/sw/bin/systemd-inhibit
+    if [[ -n "$INHIBIT_BIN" ]] && "$INHIBIT_BIN" --what=sleep:idle --who=FairTune --why=probe --mode=block true 2>/dev/null; then
+        export FAIRTUNE_INHIBITED=1
+        echo "[$(date +%H:%M:%S)] holding a sleep/idle inhibitor lock for this run (systemd-inhibit)"
+        exec "$INHIBIT_BIN" --what=sleep:idle --who=FairTune --why="training run: $*" --mode=block "$0" "${ORIG_ARGS[@]}"
+    fi
+fi
+
 DATASETS="papila glaucoma"
 SEEDS_PAPILA="0 1 2"
-SEEDS_GLAUCOMA="0 1"
+SEEDS_GLAUCOMA="0"
 SMOKE=()
 DRY=0
 RUNS_DIR="${REPO_DIR}/runs"
@@ -63,35 +87,43 @@ sens_of() { [[ "$1" == race ]] && echo intersectional || echo "$1"; }
 say() { echo "[$(date +%H:%M:%S)] $*"; }
 run() { say "+ $*"; [[ $DRY -eq 1 ]] || "$@"; }
 
-# collect DATASET ATTR DEST — move this run's outputs out of the repo tree so the
+# collect DATASET SENS DEST — move this run's outputs out of the repo tree so the
 # next run starts clean (RESULTS csvs append, discover_mask picks the newest .npy).
 collect() {
     local ds="$1" sens="$2" dest="$3" base="${REPO_DIR}/vit_base/${ds}"
     [[ $DRY -eq 1 ]] && { say "(collect ${base} -> ${dest})"; return; }
     mkdir -p "$dest"
     shopt -s nullglob
-    for p in "$base"/RESULTS_*.csv "$base"/test_predictions_*.npz "$base/Optuna_Masks/$sens" "$base/Sensitivity_Scores/$sens" \
-             "$base/Sensitivity_Results/$sens" "$base"/Optuna\ Results "$base"/Optuna\ Run\ Stats; do
+    for p in "$base"/RESULTS_*.csv "$base"/test_predictions_*.npz "$base"/Optuna\ Results "$base"/Optuna\ Run\ Stats; do
         [[ -e "$p" ]] && mv "$p" "$dest/"
+    done
+    # These three are all named after the attribute, so keep their parent folder.
+    local sub
+    for sub in Optuna_Masks Sensitivity_Scores Sensitivity_Results; do
+        [[ -e "$base/$sub/$sens" ]] && { mkdir -p "$dest/$sub"; mv "$base/$sub/$sens" "$dest/$sub/"; }
     done
     shopt -u nullglob
     touch "$dest/DONE"
 }
 
-# preclean DATASET ATTR — park leftovers from manual runs so they cannot leak in.
+# preclean DATASET SENS — park leftovers from manual runs so they cannot leak in.
 preclean() {
     local ds="$1" sens="$2" base="${REPO_DIR}/vit_base/${ds}" stale="${RUNS_DIR}/_stale/$(date +%s)"
     [[ $DRY -eq 1 ]] && return
     shopt -s nullglob
-    for p in "$base/Optuna_Masks/$sens" "$base"/RESULTS_*.csv "$base"/test_predictions_*.npz; do
+    for p in "$base"/RESULTS_*.csv "$base"/test_predictions_*.npz "$base"/Optuna\ Results "$base"/Optuna\ Run\ Stats; do
         [[ -e "$p" ]] && { mkdir -p "$stale"; mv "$p" "$stale/"; }
+    done
+    local sub
+    for sub in Optuna_Masks Sensitivity_Scores Sensitivity_Results; do
+        [[ -e "$base/$sub/$sens" ]] && { mkdir -p "$stale/$sub"; mv "$base/$sub/$sens" "$stale/$sub/"; }
     done
     shopt -u nullglob
 }
 
-# search_run DATASET LABEL ATTR SEED METHOD RANK TRIALS
+# search_run DATASET LABEL ATTR SEED METHOD RANK TRIALS [stage1_only]
 search_run() {
-    local ds="$1" label="$2" attr="$3" seed="$4" method="$5" rank="$6" trials="$7"
+    local ds="$1" label="$2" attr="$3" seed="$4" method="$5" rank="$6" trials="$7" s1only="${8:-}"
     local sens dest; sens="$(sens_of "$attr")"
     dest="${RUNS_DIR}/${ds}/${label}/${attr}/seed${seed}"
     [[ -f "$dest/DONE" ]] && { say "skip (done): $dest"; return; }
@@ -101,9 +133,13 @@ search_run() {
     SENSITIVITY_SEED="$seed" RANK_METHOD="$rank" STAGE1_NUM_TRIALS="$trials" \
         run "$PIPE" stage1 "$attr" --dataset "$ds" --search-method "$method" "${SMOKE[@]}"
     t1=$(date +%s)
-    SENSITIVITY_SEED="$seed" RANK_METHOD="$rank" \
-        run "$PIPE" stage2 "$attr" --dataset "$ds" --search-method "$method" "${SMOKE[@]}"
-    t2=$(date +%s)
+    if [[ "$s1only" == stage1_only ]]; then
+        t2=$t1
+    else
+        SENSITIVITY_SEED="$seed" RANK_METHOD="$rank" \
+            run "$PIPE" stage2 "$attr" --dataset "$ds" --search-method "$method" "${SMOKE[@]}"
+        t2=$(date +%s)
+    fi
     collect "$ds" "$sens" "$dest"
     [[ $DRY -eq 1 ]] || echo "${ds},${label},${attr},${seed},$((t1-t0)),$((t2-t1)),$((t2-t0)),${trials}" >> "$TIMINGS"
 }
@@ -127,40 +163,46 @@ stage2_with_mask() {
 make_const_mask() { # PATH VALUE
     [[ $DRY -eq 1 ]] && { say "(write const mask $1 = $2)"; return; }
     mkdir -p "$(dirname "$1")"
-    python3 -c "import numpy as np,sys; np.save(sys.argv[1], np.full(36, int(sys.argv[2]), dtype=np.int8))" "$1" "$2"
+    "$PY_BIN" -c "import numpy as np,sys; np.save(sys.argv[1], np.full(36, int(sys.argv[2]), dtype=np.int8))" "$1" "$2"
 }
 
-phase1() {
-    for ds in $DATASETS; do for attr in $(attrs_for "$ds"); do for seed in $(seeds_for "$ds"); do
-        search_run "$ds" tpe10 "$attr" "$seed" optuna worst_group_sensitivity 10
-        search_run "$ds" sens_wg "$attr" "$seed" sensitivity worst_group_sensitivity 10
-    done; done; done
-}
+# Union of all datasets' seeds, ascending, for seed-major ordering.
+all_seeds() { for ds in $DATASETS; do seeds_for "$ds"; echo; done | tr ' ' '\n' | grep -v '^$' | sort -n -u; }
+has_seed() { [[ " $(seeds_for "$1") " == *" $2 "* ]]; }
 
-ablation() {
-    for ds in $DATASETS; do for attr in $(attrs_for "$ds"); do
-        search_run "$ds" sens_random "$attr" 0 sensitivity random 10
-        search_run "$ds" sens_erm "$attr" 0 sensitivity erm_sensitivity 10
+exp1() {
+    for ds in $DATASETS; do for attr in $(attrs_for "$ds") intersectional; do
+        search_run "$ds" tpe_sample "$attr" 0 optuna worst_group_sensitivity "$TPE_SAMPLE_TRIALS" stage1_only
     done; done
 }
 
-calibration() {
-    for ds in $DATASETS; do
-        search_run "$ds" tpe50 gender 0 optuna worst_group_sensitivity 50
-    done
+# sens_grid WHICH — WHICH: single | intersectional | both. Seed-major: seed 0 of every
+# dataset/attr first, then seed 1, ...
+sens_grid() {
+    local which="$1" seed ds attrs
+    for seed in $(all_seeds); do for ds in $DATASETS; do
+        has_seed "$ds" "$seed" || continue
+        case "$which" in
+            single) attrs="$(attrs_for "$ds")" ;;
+            intersectional) attrs="intersectional" ;;
+            both) attrs="$(attrs_for "$ds") intersectional" ;;
+        esac
+        for attr in $attrs; do
+            search_run "$ds" sens_wg "$attr" "$seed" sensitivity worst_group_sensitivity k10
+        done
+    done; done
 }
 
-phase2() {
+exp3_ablation() {
     for ds in $DATASETS; do for seed in $(seeds_for "$ds"); do
-        search_run "$ds" sens_wg intersectional "$seed" sensitivity worst_group_sensitivity 10
         # Core ablation: single-attribute-searched masks evaluated on the intersectional groups.
         for attr in $(attrs_for "$ds"); do
             local sens maskdir mask
             sens="$(sens_of "$attr")"
-            maskdir="${RUNS_DIR}/${ds}/sens_wg/${attr}/seed${seed}/${sens}"
+            maskdir="${RUNS_DIR}/${ds}/sens_wg/${attr}/seed${seed}/Optuna_Masks/${sens}"
             mask=$(ls -t "$maskdir"/*.npy 2>/dev/null | head -1 || true)
             if [[ -z "$mask" && $DRY -eq 0 ]]; then
-                echo "WARNING: no Phase-1 mask at $maskdir (run phase1 first); skipping xmask_${attr}" >&2; continue
+                echo "WARNING: no exp2 mask at $maskdir (run exp2 first); skipping xmask_${attr}" >&2; continue
             fi
             stage2_with_mask "$ds" "xmask_${attr}" intersectional "$seed" "${mask:-$maskdir/MASK.npy}"
         done
@@ -171,12 +213,20 @@ phase2() {
     done; done
 }
 
+ablation() {
+    for ds in $DATASETS; do for attr in $(attrs_for "$ds"); do
+        search_run "$ds" sens_random "$attr" 0 sensitivity random k10
+        search_run "$ds" sens_erm "$attr" 0 sensitivity erm_sensitivity k10
+    done; done
+}
+
 case "$PHASE" in
-    phase1) phase1 ;;
+    exp1) exp1 ;;
+    exp2) sens_grid single ;;
+    exp3) sens_grid intersectional ;;
+    all) exp1; sens_grid both ;;
+    exp3_ablation) exp3_ablation ;;
     ablation) ablation ;;
-    phase2) phase2 ;;
-    calibration) calibration ;;
-    all) phase1; ablation; phase2; calibration ;;
-    *) echo "Unknown phase: $PHASE" >&2; exit 1 ;;
+    *) echo "Unknown phase: $PHASE (expected exp1|exp2|exp3|all|exp3_ablation|ablation)" >&2; exit 1 ;;
 esac
 say "done: $PHASE"

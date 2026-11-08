@@ -1,9 +1,8 @@
 # layer's preprocessing scripts. Install torch/torchvision FIRST, both inside
 # the project's .venv:
-#   - Primary path: ROCm PyTorch wheels from repo.radeon.com
-#     (see ../WSL_ROCM_SETUP.md) — do not let this pull in a CUDA/CPU-only
-#     torch build.
-#   - Fallback path (native Windows / no ROCm-supported AMD GPU): CUDA-enabled
+#   - AMD GPU (Linux): ROCm PyTorch wheels (see ../RUN_GUIDE.md, Step 0) —
+#     do not let this pull in a CUDA/CPU-only torch build.
+#   - NVIDIA GPU (Windows or Linux): CUDA-enabled
 #     torch/torchvision (pip install torch torchvision --index-url
 #     https://download.pytorch.org/whl/cuXXX — see ../CUDA_SETUP.md).
 #
@@ -12,8 +11,8 @@
 # consumes the raw Harvard-GF release, downloaded directly (no account/token
 # needed) from:
 #   https://huggingface.co/datasets/harvardairobotics/Harvard-GF/resolve/main/Dataset/dataset.zip
-# See INTERSECTIONAL_FAIRNESS_PLAN.md's "Data acquisition" section for how
-# that was confirmed and what the extracted files look like.
+# Extract it so Training/, Validation/, Test/ sit directly under harvard-dataset/
+# (see preprocess_glaucoma.py's header for the layout).
 timm
 optuna
 loralib

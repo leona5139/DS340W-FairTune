@@ -1151,8 +1151,14 @@ def objective(trial):
         min_acc = min(val_acc_groups)
         acc_diff = abs(max_acc - min_acc)
 
-        max_auc = max(val_auc_groups)
-        min_auc = min(val_auc_groups)
+        # NaN = group AUC undefined (single-class group); exclude it like
+        # finetune_with_mask.py / search_mask_sensitivity.py do.
+        _auc_arr = np.asarray(val_auc_groups, dtype=float)
+        if np.all(np.isnan(_auc_arr)):
+            max_auc = min_auc = float("nan")
+        else:
+            max_auc = float(np.nanmax(_auc_arr))
+            min_auc = float(np.nanmin(_auc_arr))
         auc_diff = abs(max_auc - min_auc)
 
         print("\n")
@@ -1306,6 +1312,7 @@ def objective(trial):
 
 if __name__ == "__main__":
     args = get_args_parser().parse_args()
+    set_amp_dtype(args)  # --amp_dtype, same as finetune_with_mask.py / search_mask_sensitivity.py
     args.plots_save_dir = os.path.join(
         os.getcwd(),
         "plots",
@@ -1462,20 +1469,46 @@ if __name__ == "__main__":
     )
 
     df = study.trials_dataframe()
-    try:
-        df = df.drop(
-            [
-                "datetime_start",
-                "datetime_complete",
-                "duration",
-                "system_attrs_completed_rung_0",
-            ],
-            axis=1,
-        )  # Drop unnecessary columns
-    except:
-        pass
+    # Keep datetime_start/datetime_complete/duration: per-trial timing is what the
+    # partial-TPE cost extrapolation (orchestration/summarize_runs.py) is built on.
+    # (The original code dropped them inside a bare try/except, which either removed
+    # them or silently dropped nothing when the rung column was absent.)
+    df = df.drop(columns=["system_attrs_completed_rung_0"], errors="ignore")
     df = df.rename(columns={"value": args.objective_metric})
     df.to_csv(os.path.join(stats_df_savedir, stats_df_name), index=False)
+
+    # Per-trial wall-clock. objective() calls trial.report() only once, AFTER the full
+    # epoch loop, so a PRUNED trial has still trained all args.epochs epochs: pruning
+    # never shortens a trial here, and every trial costs about the same.
+    timing_rows = []
+    for t in study.trials:
+        if t.datetime_start is None or t.datetime_complete is None:
+            continue
+        secs = (t.datetime_complete - t.datetime_start).total_seconds()
+        timing_rows.append(
+            {
+                "number": t.number,
+                "state": t.state.name,
+                "epochs": args.epochs,
+                "duration_seconds": secs,
+                "seconds_per_epoch": secs / max(args.epochs, 1),
+            }
+        )
+    pd.DataFrame(timing_rows).to_csv(
+        os.path.join(
+            stats_df_savedir,
+            "Trial_Timing_"
+            + args.sens_attribute
+            + "_"
+            + args.tuning_method
+            + "_"
+            + args.model
+            + "_"
+            + args.objective_metric
+            + ".csv",
+        ),
+        index=False,
+    )
 
     # Save the best params
     cols = ["Col {}".format(i) for i in range(len(trial.params))]

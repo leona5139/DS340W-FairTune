@@ -13,8 +13,11 @@ and `config.yaml`.
 are being edited in place for a post-submission research extension —
 generalizing the paper's hardcoded 4-group `age_sex` intersectional-fairness
 pattern into an N-way mechanism, across PAPILA and a second dataset
-(Harvard-GF glaucoma). See `INTERSECTIONAL_FAIRNESS_PLAN.md` for the design
-and status. Data now lives in per-dataset split directories:
+(Harvard-GF glaucoma), plus a faster sensitivity-ranking mask search
+(`search_mask_sensitivity.py`). **`RUN_GUIDE.md` is the current runbook** for
+the three experiments (TPE sample + extrapolation, sensitivity single-attribute,
+sensitivity intersectional), driven by `orchestration/run_experiments.sh`.
+Data now lives in per-dataset split directories:
 `data_splits_papila/` (PAPILA) and `data_splits_glaucoma/` (Harvard-GF).
 
 ## Why this exists
@@ -30,11 +33,11 @@ between runtime resets (crashed `finetune_with_mask.py` deep into a run with
 a confusing `TypeError`), and notebooks are painful to screen-record for the
 assignment's "run it on camera" requirement (no press-play-and-walk-away).
 
-The **primary path is an AMD GPU under WSL2 + ROCm** — see
-`WSL_ROCM_SETUP.md`. A native-Windows-with-NVIDIA-GPU (CUDA) path also
-exists as a **fallback** (`CUDA_SETUP.md`, from when the hardware situation
-briefly looked like it might change) but should not be treated as primary
-unless ROCm/WSL2 genuinely can't be made to work on the current machine. The
+The current machine is **native Linux (NixOS) with an AMD RX 9060 XT +
+ROCm** (the earlier WSL2 runbook, `WSL_ROCM_SETUP.md`, has been removed).
+A native-Windows-with-NVIDIA-GPU (CUDA) path is documented in `CUDA_SETUP.md`
+and is also what a grader is likely to use (see RUN_GUIDE.md's grader quick
+start). The
 core files (`search_mask.py`, `finetune_with_mask.py`, `parse_args.py`,
 `utilities/`) don't care either way — they already use plain,
 vendor-agnostic PyTorch (`--device cuda` default, `torch.cuda.*`), which
@@ -42,10 +45,8 @@ works unmodified on both ROCm-as-CUDA and real NVIDIA CUDA.
 
 ## Start here
 
-1. Read `WSL_ROCM_SETUP.md` top to bottom — one-time WSL2 + ROCm driver +
-   Python venv + ROCm PyTorch wheel install (`CUDA_SETUP.md` is the
-   equivalent runbook for the NVIDIA/CUDA fallback, if you ever need it
-   instead).
+1. Read `RUN_GUIDE.md` Step 0 — Python venv + ROCm PyTorch wheel install
+   (`CUDA_SETUP.md` is the equivalent runbook for NVIDIA/CUDA).
 2. Every terminal session (including the one you record in) needs the
    project venv active first. `run_pipeline.sh` hard-fails immediately with
    a clear error if `$VIRTUAL_ENV` is unset, rather than silently running
@@ -68,24 +69,25 @@ works unmodified on both ROCm-as-CUDA and real NVIDIA CUDA.
    `./orchestration/run_pipeline.sh all` (both `gender` and `age`, full
    epochs/trials). One command, one terminal — this is what gets recorded.
 6. `data_splits_papila/*.csv` are already generated and committed
-   (deterministic given fixed seeds — verified train=294/val=84/test=42
-   rows). Only run `preprocess_papila.py` again if you need to regenerate
-   them; it's idempotent and skips if the CSVs already exist.
+   (deterministic; patient-level, jointly stratified on age x sex group x
+   glaucoma label — train=292/val=82/test=46 rows; see RUN_GUIDE.md
+   "Splits and metrics"). Only rerun `preprocess_papila.py` to regenerate
+   them (`run_pipeline.sh preprocess --force-preprocess`; it skips if the
+   CSVs already exist).
    `data_splits_glaucoma/*.csv` (Harvard-GF) are built the same way by
-   `preprocess_glaucoma.py` — see `INTERSECTIONAL_FAIRNESS_PLAN.md`.
+   `preprocess_glaucoma.py`, which also builds the `RNFLT_png/` images
+   (`run_pipeline.sh config --dataset glaucoma` runs it if they're missing).
 7. `config.yaml` is deliberately left unfilled in this repo — `run_pipeline.sh
    all`/`config` fills it automatically with paths that are correct on
    *this* machine. Don't hand-edit it.
 
 ## Known risk areas
 
-- **VRAM**: `BATCH_SIZE=42` (fixed — see `common.sh`'s comment: it's chosen
-  to evenly divide PAPILA's split sizes and avoid a zero-guard-free
-  per-subgroup division crash in the repo's own `utilities/utils.py`, not for
-  performance). If you hit an OOM, that's a real constraint to raise with the
-  user, not something to silently "fix" by changing the batch size — it
-  would reintroduce the crash risk it was chosen to avoid unless you check
-  the new batch size still evenly divides 294/84/42.
+- **VRAM**: `BATCH_SIZE=42` PAPILA / 30 Harvard-GF, kept fixed so runtimes
+  stay comparable across runs. It no longer has to divide the split sizes
+  (per-group accuracy is zero-guarded and group metrics are pooled over the
+  whole split). If you hit an OOM, raise it with the user rather than
+  silently changing the batch size — that would break timing comparability.
 - **`discover_mask()` in `common.sh`** uses GNU `find -printf`, which on the
   primary WSL2/ROCm path is just Ubuntu's normal `find` (fine). On the
   Windows/CUDA fallback it needs Git Bash's bundled `find` (the real MSYS2

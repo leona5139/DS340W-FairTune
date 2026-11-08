@@ -8,6 +8,20 @@
 __pycache__/
 *.pyc
 
-# Project-local virtualenv (see WSL_ROCM_SETUP.md / CUDA_SETUP.md) — never
+# Project-local virtualenv (see RUN_GUIDE.md / CUDA_SETUP.md) — never
 # commit it.
 .venv/
+
+# Smoke-test outputs and runs/ leftovers parked by run_experiments.sh's preclean.
+/runs_smoke/
+/runs_smoke_v1/
+/runs/_stale/
+/runs/_stale_v1/
+
+# NixOS FHS env build symlink (fhs.nix)
+/.fhs-env
+
+# Raw run logs are >100 MB (mostly sklearn warning spam); the committed
+# runs/*.filtered.log.gz + runs/*_eval_metrics.csv hold their content.
+/runs/glaucoma.log
+/runs/papila_v2.log

@@ -18,20 +18,20 @@ behavioral rule rather than just matching names:
   Test (assignment) 20%   iterative dev     -> val.csv         every trial + epoch
   Validation (asg.) 10%   unseen until done -> test.csv         once, final results
 
-This mirrors MEDFAIR's own PAPILA.ipynb split sizes/seeds
-(test_size=0.3, random_state=5, then test_size=0.66, random_state=15 on the
-remainder), but unlike the notebook, both splits are stratified by
-patient-level Diagnosis (positive if either eye is positive) -- a plain
-random split left one intersectional group with zero positive rows in
-train.csv. See the split code below for why stratification isn't also
-joint with Intersectional_Group.
+Split sizes follow MEDFAIR's PAPILA.ipynb (patient-level ~70/20/10, the split
+FairTune itself uses), but patients are stratified JOINTLY on
+Intersectional_Group (Age_binary x Sex) x patient-level Diagnosis, so every
+age x sex group keeps its glaucoma/healthy ratio in every split. The earlier
+Diagnosis-only stratification left young men with zero glaucoma eyes in
+train.csv and young women with zero in test.csv. sklearn's train_test_split
+can't stratify strata this small (young-male glaucoma = 2 patients), so a
+small deterministic allocator is used instead -- see allocate_stratum().
 """
 import argparse
 import os
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 
 from intersectional_utils import build_intersectional_group
 
@@ -44,6 +44,37 @@ def _fix_df(df):
     df_new = df_new.drop([np.nan], axis=0)
     df_new.columns.name = "ID"
     return df_new
+
+
+SPLIT_FRACS = (0.7, 0.2, 0.1)  # train, val (assignment "Test"), test (assignment "Validation")
+SPLIT_SEED = 5
+
+
+def allocate_stratum(n, fracs=SPLIT_FRACS):
+    """Patients per split (train, val, test) for one (group, diagnosis) stratum.
+
+    Largest-remainder rounding of n * fracs, then a coverage rule so thin
+    strata still reach the splits that matter:
+      n >= 3: at least 1 patient in every split (taken from train)
+      n == 2: 1 train, 1 test (test is what gets reported; val is skipped and
+              that group's val AUC is NaN, which the search already excludes)
+      n == 1: train only
+    """
+    if n == 1:
+        return [1, 0, 0]
+    if n == 2:
+        return [1, 0, 1]
+    raw = [n * f for f in fracs]
+    counts = [int(np.floor(r)) for r in raw]
+    order = sorted(range(3), key=lambda i: raw[i] - counts[i], reverse=True)
+    for i in order[: n - sum(counts)]:
+        counts[i] += 1
+    for i in (1, 2):
+        if counts[i] == 0:
+            counts[i] = 1
+            counts[0] -= 1
+    assert sum(counts) == n and min(counts) >= 1, (n, counts)
+    return counts
 
 
 def load_clinical(path):
@@ -103,29 +134,28 @@ def main():
     print("Intersectional group mapping (Age_binary x Sex):")
     print(intersectional_mapping.to_string(index=False))
 
-    # Patient-level split (avoids leaking a patient's OD/OS pair across splits,
-    # unlike the repo's own eye-level HelpCode/kfold/ files). Matches MEDFAIR's
-    # exact parameters, except stratified by Diagnosis (below) where MEDFAIR
-    # was not -- a plain random split left one intersectional group with zero
-    # positive rows in train.csv despite having positives in val/test.
-    #
-    # Patient-level Diagnosis label for stratification: positive if either
-    # eye (OD or OS) is positive. Stratifying keeps each split's
-    # glaucoma/healthy ratio equal to the full dataset's; stratifying jointly
-    # on Intersectional_Group x Diagnosis instead was ruled out -- the
-    # thinnest group has too few positive patients (~2) for sklearn to split
-    # that stratum across train/val/test at all.
-    patient_diag = meta_binary.groupby("patient_id")["Diagnosis"].max()
-    patient_ids = patient_diag.index.to_numpy()
-    patient_strat = patient_diag.to_numpy()
+    # Patient-level split (avoids leaking a patient's OD/OS pair across
+    # splits), stratified jointly on Intersectional_Group x patient-level
+    # Diagnosis (positive if either eye is positive). Age and sex are
+    # per-patient, so a patient's group is the same for both eyes.
+    patients = meta_binary.groupby("patient_id").agg(
+        group=("Intersectional_Group", "first"),
+        n_groups=("Intersectional_Group", "nunique"),
+        diag=("Diagnosis", "max"),
+    )
+    assert (patients["n_groups"] == 1).all(), "a patient's two eyes landed in different age x sex groups"
 
-    train_ids, remainder_ids, _, remainder_strat = train_test_split(
-        patient_ids, patient_strat, test_size=0.3, random_state=5, stratify=patient_strat
-    )
-    # train_test_split(X, test_size=0.66) returns (X_train=34%, X_test=66%) of `remainder_ids`
-    final_holdout_ids, iterative_dev_ids = train_test_split(
-        remainder_ids, test_size=0.66, random_state=15, stratify=remainder_strat
-    )
+    rng = np.random.default_rng(SPLIT_SEED)
+    train_ids, iterative_dev_ids, final_holdout_ids = [], [], []
+    print("Patients per stratum (group, diagnosis) -> train/val/test:")
+    for (g, y), stratum in patients.groupby(["group", "diag"]):
+        ids = np.sort(stratum.index.to_numpy())
+        rng.shuffle(ids)
+        n_tr, n_va, n_te = allocate_stratum(len(ids))
+        train_ids += ids[:n_tr].tolist()
+        iterative_dev_ids += ids[n_tr:n_tr + n_va].tolist()
+        final_holdout_ids += ids[n_tr + n_va:].tolist()
+        print(f"  group {g} diag {y}: {len(ids)} patients -> {n_tr}/{n_va}/{n_te}")
 
     train_df = meta_binary[meta_binary["patient_id"].isin(train_ids)].reset_index(drop=True)
     # iterative_dev_ids (~20% of patients) = assignment's "Test" -> val.csv
@@ -167,6 +197,11 @@ def main():
             intersectional_mapping["Intersectional_Group"], fill_value=0
         )
         intersectional_mapping[f"count_{name}"] = counts.values
+    for name, d in [("train", train_df), ("val", val_df), ("test", test_df)]:
+        pos = d.groupby("Intersectional_Group")["Diagnosis"].sum().reindex(
+            intersectional_mapping["Intersectional_Group"], fill_value=0
+        )
+        intersectional_mapping[f"pos_{name}"] = pos.values.astype(int)
     intersectional_mapping.to_csv(mapping_csv_path, index=False)
     print("Per-split group counts:")
     print(intersectional_mapping.to_string(index=False))
