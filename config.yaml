@@ -1,53 +1,43 @@
 data:
   HAM10000:
-    root_path: ''
     img_path: ''
+    root_path: ''
+    test_csv: ''
     train_csv: ''
     val_csv: ''
-    test_csv: ''
-
-  fitzpatrick: ''
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-
-  papila:
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-
-  ol3i:
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-    
-  oasis:
-    root_path: ''
-    img_path: ''
-    train_csv: ''
-    val_csv: ''
-    test_csv: ''
-
   chexpert:
-    root_path: ''
     img_path: ''
+    root_path: ''
+    test_csv: ''
     train_csv: ''
     val_csv: ''
+  fitzpatrick:
+    img_path: ''
+    root_path: ''
     test_csv: ''
-
+    train_csv: ''
+    val_csv: ''
   glaucoma:
-    root_path: ''
+    img_path: /home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard/RNFLT_png
+    root_path: /home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard/RNFLT_png
+    test_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/test.csv
+    train_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/train.csv
+    val_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/val.csv
+  oasis:
     img_path: ''
+    root_path: ''
+    test_csv: ''
     train_csv: ''
     val_csv: ''
+  ol3i:
+    img_path: ''
+    root_path: ''
     test_csv: ''
-
-  
-
-  
+    train_csv: ''
+    val_csv: ''
+  papila:
+    img_path: /home/leona/Documents/DS 340W/DS340W-FairTune/data/Papila/FundusImages
+    root_path: /home/leona/Documents/DS 340W/DS340W-FairTune/data/Papila/FundusImages
+    test_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_papila/test.csv
+    train_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_papila/train.csv
+    val_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_papila/val.csv

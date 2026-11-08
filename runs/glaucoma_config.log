@@ -1,0 +1,65 @@
+
+================================================================
+[22:59:31] PREPROCESS — building train/val/test.csv from Harvard-GF
+   harvard_dir=/home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard -> /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma
+================================================================
++ /home/leona/Documents/DS 340W/DS340W-FairTune/.venv/bin/python /home/leona/Documents/DS 340W/DS340W-FairTune/orchestration/preprocess_glaucoma.py --harvard-dir /home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard --out-dir /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma
+Loading Training/ -> train
+  2100 subjects
+Loading Validation/ -> val
+  300 subjects
+Loading Test/ -> test
+  900 subjects
+
+Total subjects: 3300
+Glaucoma value counts: {1: 1748, 0: 1552}
+Sex value counts: {'F': 1812, 'M': 1488}
+Race value counts: {'Asian': 1100, 'White or Caucasian': 1100, 'Black or African American': 1100}
+Age_binary value counts: {1: 1768, 0: 1532}
+
+Intersectional group mapping (Age_binary x Sex x Race):
+ Intersectional_Group  Age_binary Sex                      Race  count
+                    0           0   F                     Asian    313
+                    1           0   F Black or African American    284
+                    2           0   F        White or Caucasian    247
+                    3           0   M                     Asian    277
+                    4           0   M Black or African American    246
+                    5           0   M        White or Caucasian    165
+                    6           1   F                     Asian    282
+                    7           1   F Black or African American    325
+                    8           1   F        White or Caucasian    361
+                    9           1   M                     Asian    228
+                   10           1   M Black or African American    245
+                   11           1   M        White or Caucasian    327
+
+train.csv: 2100 rows (from Training/)
+val.csv:   300 rows (from Validation/)
+test.csv:  900 rows (from Test/)
+train -> rows: 2100 | class balance: {1: 1083, 0: 1017}
+val -> rows: 300 | class balance: {1: 176, 0: 124}
+test -> rows: 900 | class balance: {1: 489, 0: 411}
+
+Per-split group counts:
+ Intersectional_Group  Age_binary Sex                      Race  count  count_train  count_val  count_test
+                    0           0   F                     Asian    313          205         23          85
+                    1           0   F Black or African American    284          200         19          65
+                    2           0   F        White or Caucasian    247          160         10          77
+                    3           0   M                     Asian    277          182         18          77
+                    4           0   M Black or African American    246          153         22          71
+                    5           0   M        White or Caucasian    165          113         10          42
+                    6           1   F                     Asian    282          172         34          76
+                    7           1   F Black or African American    325          198         30          97
+                    8           1   F        White or Caucasian    361          224         48          89
+                    9           1   M                     Asian    228          141         25          62
+                   10           1   M Black or African American    245          149         29          67
+                   11           1   M        White or Caucasian    327          203         32          92
+
+All sanity checks passed. Wrote: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/train.csv /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/val.csv /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/test.csv /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/intersectional_mapping.csv
+
+================================================================
+[22:59:52] CONFIG — filling config.yaml
+   repo_dir=/home/leona/Documents/DS 340W/DS340W-FairTune dataset=glaucoma
+================================================================
++ /home/leona/Documents/DS 340W/DS340W-FairTune/.venv/bin/python /home/leona/Documents/DS 340W/DS340W-FairTune/orchestration/configure_fairtune.py --repo-dir /home/leona/Documents/DS 340W/DS340W-FairTune --dataset glaucoma --img-dir /home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard/RNFLT_png --train-csv /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/train.csv --val-csv /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/val.csv --test-csv /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/test.csv
+config.yaml['glaucoma'] verified valid: {'img_path': '/home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard/RNFLT_png', 'root_path': '/home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard/RNFLT_png', 'test_csv': '/home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/test.csv', 'train_csv': '/home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/train.csv', 'val_csv': '/home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/val.csv'}
+Wrote and verified config.yaml['glaucoma']: {'img_path': '/home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard/RNFLT_png', 'root_path': '/home/leona/Documents/DS 340W/DS340W-FairTune/data/Harvard/RNFLT_png', 'test_csv': '/home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/test.csv', 'train_csv': '/home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/train.csv', 'val_csv': '/home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_glaucoma/val.csv'}

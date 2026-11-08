@@ -1,0 +1,10 @@
+,,,stage1_s,stage1_s,stage1_s,stage2_s,stage2_s,stage2_s,auc_overall,auc_overall,auc_overall,auc_best,auc_best,auc_best,auc_worst,auc_worst,auc_worst,auc_diff,auc_diff,auc_diff
+,,,mean,std,count,mean,std,count,mean,std,count,mean,std,count,mean,std,count,mean,std,count
+dataset,label,attr,,,,,,,,,,,,,,,,,,
+glaucoma,sens_wg,age,4877.0,166.865,3,819.667,51.791,3,0.854,0.01,3,0.85,0.015,3,0.838,0.009,3,0.012,0.01,3
+glaucoma,sens_wg,gender,4876.0,156.205,3,848.667,7.234,3,0.859,0.006,3,0.864,0.011,3,0.856,0.001,3,0.008,0.011,3
+glaucoma,sens_wg,intersectional,5152.667,141.001,3,876.667,31.47,3,0.852,0.008,3,0.922,0.016,3,0.746,0.023,3,0.176,0.024,3
+glaucoma,sens_wg,race,4906.333,144.091,3,843.667,49.943,3,0.855,0.004,3,0.883,0.008,3,0.798,0.006,3,0.085,0.003,3
+papila,sens_wg,age,887.667,0.577,3,202.667,8.622,3,0.823,0.042,3,0.882,0.028,3,0.734,0.097,3,0.148,0.071,3
+papila,sens_wg,gender,885.667,1.528,3,204.0,6.928,3,0.835,0.031,3,0.755,0.092,3,0.912,0.009,3,0.157,0.084,3
+papila,sens_wg,intersectional,897.0,2.646,3,211.667,7.572,3,0.801,0.038,3,0.955,0.005,3,0.528,0.21,3,0.428,0.214,3
