@@ -1,0 +1,111 @@
+dataset,method,seed,loss,worst,eod
+papila,Full fine-tuning,0,normal,0.5833333333333334,1.0
+papila,Full fine-tuning,0,group-balanced,0.75,0.5
+papila,Full fine-tuning,1,normal,0.6666666666666666,1.0
+papila,Full fine-tuning,1,group-balanced,0.8333333333333334,0.5
+papila,Full fine-tuning,2,normal,0.5833333333333334,0.5
+papila,Full fine-tuning,2,group-balanced,0.6666666666666666,1.0
+papila,Full fine-tuning,3,normal,0.5833333333333334,0.5
+papila,Full fine-tuning,3,group-balanced,0.7916666666666666,0.5
+papila,Full fine-tuning,4,normal,0.6666666666666666,0.5
+papila,Full fine-tuning,4,group-balanced,0.6666666666666666,0.25
+papila,Full fine-tuning,5,normal,0.7916666666666666,0.5
+papila,Full fine-tuning,5,group-balanced,0.8333333333333334,0.5
+papila,Full fine-tuning,6,normal,0.75,0.5
+papila,Full fine-tuning,6,group-balanced,0.75,0.5
+papila,Full fine-tuning,7,normal,0.6666666666666666,0.5
+papila,Full fine-tuning,7,group-balanced,0.75,0.5
+papila,Full fine-tuning,8,normal,0.5,1.0
+papila,Full fine-tuning,8,group-balanced,0.5833333333333334,1.0
+papila,Full fine-tuning,9,normal,0.6666666666666666,0.5
+papila,Full fine-tuning,9,group-balanced,0.8333333333333334,0.5
+papila,Mask searched on sex,0,normal,0.5,1.0
+papila,Mask searched on sex,0,group-balanced,0.75,1.0
+papila,Mask searched on sex,1,normal,0.5,1.0
+papila,Mask searched on sex,1,group-balanced,0.5,1.0
+papila,Mask searched on sex,2,normal,0.7083333333333334,0.5
+papila,Mask searched on sex,2,group-balanced,0.5833333333333334,0.583
+papila,Mask searched on sex,3,normal,0.5,0.5
+papila,Mask searched on sex,3,group-balanced,0.8333333333333334,0.5
+papila,Mask searched on sex,4,normal,0.5833333333333334,0.333
+papila,Mask searched on sex,4,group-balanced,0.8333333333333334,0.5
+papila,Mask searched on sex,5,normal,0.6666666666666666,0.5
+papila,Mask searched on sex,5,group-balanced,0.6666666666666666,0.667
+papila,Mask searched on sex,6,normal,0.3958333333333333,0.5
+papila,Mask searched on sex,6,group-balanced,0.5833333333333334,0.5
+papila,Mask searched on sex,7,normal,0.3333333333333333,0.8
+papila,Mask searched on sex,7,group-balanced,0.6666666666666666,0.5
+papila,Mask searched on sex,8,normal,0.5833333333333334,0.5
+papila,Mask searched on sex,8,group-balanced,0.5833333333333334,0.5
+papila,Mask searched on sex,9,normal,0.5833333333333334,0.5
+papila,Mask searched on sex,9,group-balanced,0.7083333333333334,0.5
+papila,Mask searched on age,0,normal,0.4166666666666667,0.8
+papila,Mask searched on age,0,group-balanced,0.6666666666666666,0.25
+papila,Mask searched on age,1,normal,0.3333333333333333,0.5
+papila,Mask searched on age,1,group-balanced,0.5833333333333334,0.5
+papila,Mask searched on age,2,normal,0.5,0.5
+papila,Mask searched on age,2,group-balanced,0.75,0.5
+papila,Mask searched on age,3,normal,0.5833333333333334,1.0
+papila,Mask searched on age,3,group-balanced,0.5416666666666666,0.5
+papila,Mask searched on age,4,normal,0.8333333333333334,0.5
+papila,Mask searched on age,4,group-balanced,0.75,0.5
+papila,Mask searched on age,5,normal,0.5,0.25
+papila,Mask searched on age,5,group-balanced,0.65,1.0
+papila,Mask searched on age,6,normal,0.4166666666666667,1.0
+papila,Mask searched on age,6,group-balanced,0.75,0.5
+papila,Mask searched on age,7,normal,0.5416666666666666,0.5
+papila,Mask searched on age,7,group-balanced,0.625,0.5
+papila,Mask searched on age,8,normal,0.6666666666666666,0.5
+papila,Mask searched on age,8,group-balanced,0.5833333333333334,1.0
+papila,Mask searched on age,9,normal,0.5833333333333334,0.5
+papila,Mask searched on age,9,group-balanced,0.75,0.75
+papila,Mask searched on intersection (ours),0,normal,0.5833333333333334,0.5
+papila,Mask searched on intersection (ours),0,group-balanced,0.8333333333333334,0.5
+papila,Mask searched on intersection (ours),1,normal,0.5833333333333334,0.5
+papila,Mask searched on intersection (ours),1,group-balanced,0.7083333333333334,0.5
+papila,Mask searched on intersection (ours),2,normal,0.5,0.5
+papila,Mask searched on intersection (ours),2,group-balanced,0.625,1.0
+papila,Mask searched on intersection (ours),3,normal,0.125,1.0
+papila,Mask searched on intersection (ours),3,group-balanced,0.8333333333333334,0.5
+papila,Mask searched on intersection (ours),4,normal,0.5833333333333334,0.5
+papila,Mask searched on intersection (ours),4,group-balanced,0.625,0.567
+papila,Mask searched on intersection (ours),5,normal,0.75,0.5
+papila,Mask searched on intersection (ours),5,group-balanced,0.7083333333333334,0.5
+papila,Mask searched on intersection (ours),6,normal,0.5833333333333334,0.5
+papila,Mask searched on intersection (ours),6,group-balanced,0.4166666666666667,0.5
+papila,Mask searched on intersection (ours),7,normal,0.75,1.0
+papila,Mask searched on intersection (ours),7,group-balanced,0.75,1.0
+papila,Mask searched on intersection (ours),8,normal,0.5833333333333334,0.5
+papila,Mask searched on intersection (ours),8,group-balanced,0.7916666666666666,0.75
+papila,Mask searched on intersection (ours),9,normal,0.75,1.0
+papila,Mask searched on intersection (ours),9,group-balanced,0.5,0.5
+glaucoma,Full fine-tuning,0,normal,0.7152509652509652,0.414
+glaucoma,Full fine-tuning,0,group-balanced,0.7489517819706499,0.364
+glaucoma,Full fine-tuning,1,normal,0.750965250965251,0.429
+glaucoma,Full fine-tuning,1,group-balanced,0.7239382239382239,0.364
+glaucoma,Full fine-tuning,2,normal,0.7413127413127413,0.446
+glaucoma,Full fine-tuning,2,group-balanced,0.7374517374517374,0.288
+glaucoma,Mask searched on sex,0,normal,0.7567567567567568,0.486
+glaucoma,Mask searched on sex,0,group-balanced,0.7104247104247104,0.308
+glaucoma,Mask searched on sex,1,normal,0.7577220077220077,0.391
+glaucoma,Mask searched on sex,1,group-balanced,0.7442084942084942,0.339
+glaucoma,Mask searched on sex,2,normal,0.747104247104247,0.365
+glaucoma,Mask searched on sex,2,group-balanced,0.740041928721174,0.43
+glaucoma,Mask searched on age,0,normal,0.75,0.363
+glaucoma,Mask searched on age,0,group-balanced,0.7410901467505241,0.386
+glaucoma,Mask searched on age,1,normal,0.7583857442348009,0.352
+glaucoma,Mask searched on age,1,group-balanced,0.7133204633204633,0.358
+glaucoma,Mask searched on age,2,normal,0.7384169884169884,0.364
+glaucoma,Mask searched on age,2,group-balanced,0.7113899613899614,0.411
+glaucoma,Mask searched on race,0,normal,0.7594339622641509,0.396
+glaucoma,Mask searched on race,0,group-balanced,0.7700320512820513,0.398
+glaucoma,Mask searched on race,1,normal,0.7451737451737451,0.414
+glaucoma,Mask searched on race,1,group-balanced,0.747104247104247,0.363
+glaucoma,Mask searched on race,2,normal,0.7364864864864865,0.429
+glaucoma,Mask searched on race,2,group-balanced,0.749475890985325,0.3
+glaucoma,Mask searched on intersection (ours),0,normal,0.7651991614255765,0.391
+glaucoma,Mask searched on intersection (ours),0,group-balanced,0.6998069498069498,0.394
+glaucoma,Mask searched on intersection (ours),1,normal,0.749034749034749,0.415
+glaucoma,Mask searched on intersection (ours),1,group-balanced,0.7531446540880503,0.388
+glaucoma,Mask searched on intersection (ours),2,normal,0.6814671814671814,0.389
+glaucoma,Mask searched on intersection (ours),2,group-balanced,0.7258687258687259,0.395

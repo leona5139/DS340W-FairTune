@@ -273,6 +273,25 @@ def main(args):
     else:
         weight = None
 
+    # --group_balanced: per-sample weights 1 / n(group, label), mean 1 over the training set.
+    # train_one_epoch_fairness looks them up per batch via args.group_label_weights.
+    args.group_label_weights = None
+    if getattr(args, "group_balanced", False):
+        assert args.sens_attribute == "intersectional", "--group_balanced needs --sens_attribute intersectional"
+        label_col = "Diagnosis" if args.dataset == "papila" else "Glaucoma"
+        g = dataset.df["Intersectional_Group"].astype(int).to_numpy()
+        y = dataset.df[label_col].astype(int).to_numpy()
+        counts = np.zeros((int(args.num_sens_groups), 2))
+        np.add.at(counts, (g, y), 1)
+        n_cells = int((counts > 0).sum())
+        table = np.where(counts > 0, len(g) / (n_cells * np.maximum(counts, 1)), 0.0)
+        assert abs(table[g, y].mean() - 1.0) < 1e-6
+        print("Group-balanced loss: train counts [group, label]:\n", counts.astype(int))
+        print("Group-balanced loss: weights [group, label]:\n", np.round(table, 3))
+        args.group_label_weights = torch.tensor(table, dtype=torch.float32, device=device)
+        weight = None  # replaces class weights
+        print("Group-balanced loss replaces class weights")
+
     criterion = nn.CrossEntropyLoss(
         label_smoothing=args.label_smoothing, reduction="none", weight=weight
     )

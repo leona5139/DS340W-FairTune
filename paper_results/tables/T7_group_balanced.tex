@@ -1,0 +1,24 @@
+\begin{table*}[t]
+\centering
+\caption{Group-balanced Stage-2 loss (each training image weighted by 1 / count of its group $\times$ label cell) vs.\ the normal loss, same masks and learning rate, intersectional test groups. Worst = worst-group AUC (mean $\pm$ SD over seeds); EOD = equalized-odds difference. $\Delta$loss = balanced $-$ normal for the same mask and seed; $\Delta$vs FT = balanced mask $-$ balanced full fine-tuning. 95\% paired stratified-bootstrap CIs; bold if the CI excludes 0.}
+\label{tab:balanced}
+\small
+\begin{tabular}{llcccccc}
+\toprule
+ & & \multicolumn{2}{c}{Worst-group AUC} & & \multicolumn{2}{c}{EOD} & \\
+\cmidrule(lr){3-4}\cmidrule(lr){6-7}
+Dataset & Mask & Normal & Balanced & $\Delta$loss [95\% CI] & Normal & Balanced & $\Delta$vs FT [95\% CI] \\
+\midrule
+PAPILA & Full fine-tuning & 0.646 $\pm$ 0.086 & 0.746 $\pm$ 0.084 & +0.100 [-0.067, +0.225] & 0.650 & 0.575 & --- \\
+ & Mask searched on sex & 0.535 $\pm$ 0.115 & 0.671 $\pm$ 0.112 & +0.135 [-0.052, +0.279] & 0.613 & 0.625 & -0.075 [-0.198, +0.015] \\
+ & Mask searched on age & 0.537 $\pm$ 0.142 & 0.665 $\pm$ 0.081 & +0.128 [-0.195, +0.383] & 0.605 & 0.600 & -0.081 [-0.240, +0.093] \\
+ & Mask searched on intersection (ours) & 0.579 $\pm$ 0.183 & 0.679 $\pm$ 0.139 & +0.100 [-0.118, +0.183] & 0.650 & 0.632 & -0.067 [-0.201, +0.019] \\
+\midrule
+Harvard-GF & Full fine-tuning & 0.736 $\pm$ 0.018 & 0.737 $\pm$ 0.013 & +0.001 [-0.050, +0.043] & 0.430 & 0.339 & --- \\
+ & Mask searched on sex & 0.754 $\pm$ 0.006 & 0.732 $\pm$ 0.018 & -0.022 [-0.070, +0.015] & 0.414 & 0.359 & -0.005 [-0.046, +0.033] \\
+ & Mask searched on age & 0.749 $\pm$ 0.010 & 0.722 $\pm$ 0.017 & -0.027 [-0.063, +0.014] & 0.360 & 0.385 & -0.015 [-0.048, +0.037] \\
+ & Mask searched on race & 0.747 $\pm$ 0.012 & 0.756 $\pm$ 0.013 & +0.009 [-0.041, +0.045] & 0.413 & 0.354 & +0.019 [-0.024, +0.069] \\
+ & Mask searched on intersection (ours) & 0.732 $\pm$ 0.044 & 0.726 $\pm$ 0.027 & -0.006 [-0.058, +0.036] & 0.398 & 0.392 & -0.011 [-0.046, +0.036] \\
+\bottomrule
+\end{tabular}
+\end{table*}

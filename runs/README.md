@@ -25,8 +25,10 @@ runs/
   papila/tpe_full/intersectional/seed0/         original FairTune TPE, full 200 trials (+ Stage 2)
   <dataset>/paired_<label>/intersectional/seed<N>/  Stage-2 re-run of <label> with the SAME mask + LR, test
                                                 predictions in a fixed order -> paired comparisons (see below)
+  <dataset>/bal_<label>/intersectional/seed<N>/  same mask + LR as paired_<label>, Stage 2 with the
+                                                group-balanced loss (finetune_with_mask.py --group_balanced)
   tpe_full_pauses.txt                          PAUSED/RESUMED times of the tpe_full run (subtract from its time)
-  {night1,queue2,queue3}.filtered.log.gz      driver logs of these runs, sklearn warnings removed (raw logs not committed)
+  {night1,queue2,queue3,queue4}.filtered.log.gz      driver logs of these runs, sklearn warnings removed (raw logs not committed)
 ```
 
 **Paired re-runs.** The original Stage 2 iterates the test set with a shuffled loader, so `test_predictions_*.npz`

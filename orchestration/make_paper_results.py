@@ -717,6 +717,137 @@ def rerun_variability(runs, repo, out):
     return df.groupby("dataset")[["abs_d_overall", "abs_d_worst"]].agg(["mean", "median", "max"])
 
 
+# ----------------------------------------------------------------------------- T7 + F6 group-balanced loss
+BAL_ROWS = [  # (src label, display name)
+    ("base_full_ft", "Full fine-tuning"),
+    ("xmask_gender", "Mask searched on sex"),
+    ("xmask_age", "Mask searched on age"),
+    ("xmask_race", "Mask searched on race"),
+    ("sens_wg", "Mask searched on intersection (ours)"),
+]
+
+
+def t7_balanced(runs, repo, out, n_boot, rng):
+    """2x2: {each mask} x {normal loss (paired_*), group-balanced loss (bal_*)}, same masks + LR."""
+    rows, dots = [], []
+    for ds in ("papila", "glaucoma"):
+        if not seeds_of(runs, ds, "bal_base_full_ft", "intersectional"):
+            continue
+        m, _ = group_labels(repo, ds)
+        groups = sorted(m.Intersectional_Group)
+        d0 = load_npz(f"{cell(runs, ds, OURS, 'intersectional', seeds_of(runs, ds, OURS, 'intersectional')[0])}"
+                      "/test_predictions_intersectional.npz")
+        idxs = boot_indices(d0, n_boot, rng)
+
+        def load(label, s):
+            c = cell(runs, ds, label, "intersectional", s)
+            d = load_npz(f"{c}/test_predictions_intersectional.npz")
+            assert np.array_equal(d["label"], d0["label"]) and np.array_equal(d["group"], d0["group"]), c
+            r = results_row(c)
+            return d, dict(overall=auc_fast(d["label"], d["prob"]), worst=np.nanmin(group_aucs(d, groups)),
+                           eod=r["EquiOdd_diff"], dpd=r["DPD"])
+
+        bal_ff = {s: load("bal_base_full_ft", s) for s in seeds_of(runs, ds, "bal_base_full_ft", "intersectional")}
+        bal_ff_boot = {s: boot_worst_idx(v[0], groups, idxs) for s, v in bal_ff.items()}
+        for src, name in BAL_ROWS:
+            seeds = sorted(set(seeds_of(runs, ds, "paired_" + src, "intersectional"))
+                           & set(seeds_of(runs, ds, "bal_" + src, "intersectional")))
+            if not seeds:
+                continue
+            per, d_loss, d_vs_ff = [], [], []
+            for s in seeds:
+                (de, me), (db, mb) = load("paired_" + src, s), load("bal_" + src, s)
+                be, bb = boot_worst_idx(de, groups, idxs), boot_worst_idx(db, groups, idxs)
+                d_loss.append(bb - be)
+                if s in bal_ff and src != "base_full_ft":
+                    d_vs_ff.append(bb - bal_ff_boot[s])
+                per.append(dict(seed=s, **{f"{k}_erm": v for k, v in me.items()},
+                                **{f"{k}_bal": v for k, v in mb.items()},
+                                worst_bal_ff=bal_ff[s][1]["worst"] if s in bal_ff else np.nan))
+                dots += [dict(dataset=ds, method=name, seed=s, loss="normal", worst=me["worst"], eod=me["eod"]),
+                         dict(dataset=ds, method=name, seed=s, loss="group-balanced", worst=mb["worst"], eod=mb["eod"])]
+            p = pd.DataFrame(per)
+            p.assign(dataset=ds, method=name).to_csv(f"{out}/data/T7_{ds}_{src}_per_seed.csv", index=False)
+            lo, hi = np.nanpercentile(np.mean(d_loss, axis=0), [2.5, 97.5])
+            if d_vs_ff:
+                flo, fhi = np.nanpercentile(np.mean(d_vs_ff, axis=0), [2.5, 97.5])
+                fd = (p.worst_bal - p.worst_bal_ff).mean()
+            else:
+                fd = flo = fhi = np.nan
+            rows.append(dict(dataset=DS_NAME[ds], method=name, n_seeds=len(p),
+                             overall_erm=p.overall_erm.mean(), overall_bal=p.overall_bal.mean(),
+                             worst_erm=p.worst_erm.mean(), worst_erm_sd=p.worst_erm.std(ddof=1),
+                             worst_bal=p.worst_bal.mean(), worst_bal_sd=p.worst_bal.std(ddof=1),
+                             d_loss=(p.worst_bal - p.worst_erm).mean(), d_loss_lo=lo, d_loss_hi=hi,
+                             seeds_bal_better=int((p.worst_bal > p.worst_erm).sum()),
+                             eod_erm=p.eod_erm.mean(), eod_bal=p.eod_bal.mean(),
+                             dpd_erm=p.dpd_erm.mean(), dpd_bal=p.dpd_bal.mean(),
+                             d_vs_bal_ff=fd, d_vs_bal_ff_lo=flo, d_vs_bal_ff_hi=fhi))
+    if not rows:
+        return None
+    df = pd.DataFrame(rows)
+
+    def ci(d, lo, hi):
+        if np.isnan(d):
+            return "---"
+        t = f"{d:+.3f} [{lo:+.3f}, {hi:+.3f}]"
+        return r"\textbf{" + t + "}" if (lo > 0 or hi < 0) else t
+
+    lines = [r"\begin{table*}[t]", r"\centering",
+             r"\caption{Group-balanced Stage-2 loss (each training image weighted by 1 / count of its group "
+             r"$\times$ label cell) vs.\ the normal loss, same masks and learning rate, intersectional test groups. "
+             r"Worst = worst-group AUC (mean $\pm$ SD over seeds); EOD = equalized-odds difference. "
+             r"$\Delta$loss = balanced $-$ normal for the same mask and seed; $\Delta$vs FT = balanced mask $-$ "
+             r"balanced full fine-tuning. 95\% paired stratified-bootstrap CIs; bold if the CI excludes 0.}",
+             r"\label{tab:balanced}", r"\small", r"\begin{tabular}{llcccccc}", r"\toprule",
+             r" & & \multicolumn{2}{c}{Worst-group AUC} & & \multicolumn{2}{c}{EOD} & \\",
+             r"\cmidrule(lr){3-4}\cmidrule(lr){6-7}",
+             r"Dataset & Mask & Normal & Balanced & $\Delta$loss [95\% CI] & Normal & Balanced & $\Delta$vs FT [95\% CI] \\",
+             r"\midrule"]
+    prev = None
+    for _, r in df.iterrows():
+        if prev is not None and r.dataset != prev:
+            lines.append(r"\midrule")
+        dsn = r.dataset if r.dataset != prev else ""
+        prev = r.dataset
+        lines.append(f"{dsn} & {r.method} & {pm(r.worst_erm, r.worst_erm_sd)} & {pm(r.worst_bal, r.worst_bal_sd)} & "
+                     f"{ci(r.d_loss, r.d_loss_lo, r.d_loss_hi)} & {r.eod_erm:.3f} & {r.eod_bal:.3f} & "
+                     f"{ci(r.d_vs_bal_ff, r.d_vs_bal_ff_lo, r.d_vs_bal_ff_hi)} \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
+    save_table(out, "T7_group_balanced", "\n".join(lines), df)
+
+    # F6: normal vs balanced worst-group AUC per mask, seeds connected
+    dd = pd.DataFrame(dots)
+    dd.to_csv(f"{out}/data/F6_balanced_dots.csv", index=False)
+    dss = [d for d in ("papila", "glaucoma") if d in set(dd.dataset)]
+    fig, axes = plt.subplots(1, len(dss), figsize=(PAGE_W, 2.5), squeeze=False)
+    for ax, ds in zip(axes[0], dss):
+        sub = dd[dd.dataset == ds]
+        meths = [n for _, n in BAL_ROWS if n in set(sub.method)]
+        for i, mm in enumerate(meths):
+            a = sub[(sub.method == mm) & (sub.loss == "normal")].set_index("seed").worst
+            b = sub[(sub.method == mm) & (sub.loss == "group-balanced")].set_index("seed").worst.reindex(a.index)
+            for s in a.index:
+                ax.plot([i - 0.15, i + 0.15], [a[s], b[s]], color=GRID, lw=0.6, zorder=1)
+            ax.scatter(np.full(len(a), i - 0.15), a, s=10, color=C["blue"], lw=0.4, edgecolor="white", zorder=3,
+                       label="Normal loss" if i == 0 else None)
+            ax.scatter(np.full(len(b), i + 0.15), b, s=10, color=C["orange"], lw=0.4, edgecolor="white", zorder=3,
+                       label="Group-balanced loss" if i == 0 else None)
+            ax.hlines([a.mean(), b.mean()], [i - 0.27, i + 0.03], [i - 0.03, i + 0.27], color=INK, lw=1.3, zorder=4)
+        ax.set_xticks(range(len(meths)))
+        ax.set_xticklabels([mm.replace("Mask searched on ", "Mask: ").replace(" (ours)", "\n(ours)")
+                            .replace("Full fine-tuning", "Full FT") for mm in meths], rotation=30, ha="right")
+        ax.set_title(DS_NAME[ds], loc="left")
+        ax.set_ylabel("Test worst-group AUC")
+        ax.grid(axis="x", visible=False)
+    h, l = axes[0][0].get_legend_handles_labels()
+    fig.legend(h, l, frameon=False, ncol=2, loc="upper center", bbox_to_anchor=(0.5, 1.05))
+    fig.text(0.01, -0.03, "Dots: seeds (lines join the same mask and seed). Bars: means.", color=INK2, fontsize=6.5)
+    fig.tight_layout()
+    save_fig(fig, out, "F6_group_balanced")
+    return df
+
+
 # ----------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -741,6 +872,7 @@ def main():
     wc = t5_papila(runs, repo, out, a.n_boot, rng)
     t6 = masks_and_sweep(runs, out)
     rv = rerun_variability(runs, repo, out)
+    t7 = t7_balanced(runs, repo, out, a.n_boot, rng)
 
     pd.set_option("display.width", 200)
     print("== T1 compute\n", t1.round(2).to_string(index=False))
@@ -751,6 +883,10 @@ def main():
     print("== PAPILA worst-group counts:", wc.to_dict())
     print("== T6 masks\n", t6.round(2).to_string(index=False))
     print("== Stage-2 re-run variability (|rerun - original|, same mask + LR)\n", rv.round(3).to_string())
+    if t7 is not None:
+        print("== T7 group-balanced loss\n", t7[["dataset", "method", "n_seeds", "worst_erm", "worst_bal", "d_loss",
+              "d_loss_lo", "d_loss_hi", "seeds_bal_better", "eod_erm", "eod_bal", "d_vs_bal_ff", "d_vs_bal_ff_lo",
+              "d_vs_bal_ff_hi"]].round(3).to_string(index=False))
     print(f"wrote {out}")
 
 

@@ -135,7 +135,12 @@ def train_one_epoch_fairness(
 
             output = model(image)
             tol_output += output.tolist()
-            loss = torch.mean(criterion(output, target))
+            per_sample = criterion(output, target)
+            gw = getattr(args, "group_label_weights", None)
+            if gw is not None:  # --group_balanced (finetune_with_mask.py)
+                gidx = torch.as_tensor(sens_attr, device=device).long()
+                per_sample = per_sample * gw[gidx, target]
+            loss = torch.mean(per_sample)
             ece_loss = ece_criterion(output, target)
             #ece_loss = 0
 

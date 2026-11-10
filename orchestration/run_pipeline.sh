@@ -85,6 +85,7 @@ while [[ $# -gt 0 ]]; do
         --force-preprocess) FORCE_PREPROCESS=1; shift ;;
         --mask-path) MASK_PATH_OVERRIDE="$2"; shift 2 ;;
         --lr) LR_OVERRIDE="$2"; shift 2 ;;
+        --group-balanced) GROUP_BALANCED=1; shift ;;
         *) echo "Unknown option: $1" >&2; usage ;;
     esac
 done
@@ -153,6 +154,9 @@ attr_args() {
 # --compute_cw on glaucoma crashes the search/finetune scripts.
 CW_ARGS=()
 [[ "$DATASET" == "papila" ]] && CW_ARGS=(--compute_cw)
+# --group-balanced (stage2, intersectional only): group x label loss weights replace class weights.
+GB_ARGS=()
+[[ "${GROUP_BALANCED:-0}" == "1" ]] && GB_ARGS=(--group_balanced)
 AMP_ARGS=()
 [[ "$AMP" == "1" ]] && AMP_ARGS=(--amp --amp_dtype "$AMP_DTYPE")
 
@@ -277,7 +281,9 @@ do_stage2() {
     else
         lr=$(best_lr "$REPO_DIR" "$DATASET" "$SENS_ATTR")
     fi
-    banner "STAGE 2 — fine-tune with mask (sens_attribute=${attr})" \
+    local S2_CW_ARGS=("${CW_ARGS[@]}")
+    [[ ${#GB_ARGS[@]} -gt 0 ]] && S2_CW_ARGS=()
+    banner "STAGE 2 — fine-tune with mask (sens_attribute=${attr})${GB_ARGS:+ [group-balanced loss]}" \
         "mask=${mask} lr=${lr} epochs=${STAGE2_EPOCHS} batch_size=${BATCH_SIZE} workers=${WORKERS}"
     (
         cd "$REPO_DIR"
@@ -291,7 +297,7 @@ do_stage2() {
             --cal_equiodds \
             --use_metric auc \
             --objective_metric min_auc \
-            "${CW_ARGS[@]}" "${AMP_ARGS[@]}" \
+            "${S2_CW_ARGS[@]}" "${GB_ARGS[@]}" "${AMP_ARGS[@]}" \
             --epochs "$STAGE2_EPOCHS" \
             --batch-size "$BATCH_SIZE" \
             --workers "$WORKERS" \

@@ -15,6 +15,7 @@ sized for IEEE two-column (3.5 in column / 7.16 in page). `data/` holds the numb
 | `T5_papila_per_group` | PAPILA per-group, per-seed test AUC with bootstrap CIs, test eyes / positives | `paired_sens_wg` |
 | `T6_mask_composition`, `F4_mask_heatmap` | Chosen k, share of LayerNorm / attention / MLP components, per-component selection frequency | `sens_wg` masks |
 | `F5_k_sweep` | Validation worst-group AUC vs trainable-parameter % over the k-sweep | `sens_wg` k-sweeps |
+| `T7_group_balanced` + `F6_group_balanced` | Each mask with the normal vs the group-balanced Stage-2 loss (weights 1 / n(group, label)); Δloss and Δ vs balanced full FT with paired CIs; EOD | `paired_*` vs `bal_*` |
 | `data/rerun_variability.csv` | Same mask + LR fine-tuned twice (original cell vs `paired_*` re-run): change in test overall / worst-group AUC | original vs `paired_*` |
 
 ## Why `paired_*` runs
@@ -40,6 +41,11 @@ everything produced by the search itself (masks, k-sweeps, timings, T2).
   re-run (46 test eyes, Young M has very few positives).
 - **Original FairTune runtime.** Measured 9.7 GPU-h (pause-corrected) vs 10.0 h extrapolated from 5 trials. 192 of
   200 trials were pruned, yet mean trial time stayed close to the sample's, so pruning saves little here.
+- **Group-balanced loss (T7).** PAPILA: worst-group AUC rises by +0.10 to +0.135 for every mask
+  (6-8 of 10 seeds improve) but every CI includes 0; the 2 positive young-male training eyes get an
+  18x weight, so this is high-variance. Harvard-GF: no change in worst-group AUC (-0.027 to +0.009),
+  EOD falls for full FT (0.430 -> 0.339). With the balanced loss, no mask beats balanced full FT.
+  On PAPILA the balanced loss replaces the original code's class weights (--compute_cw).
 - Worst/best = min/max over groups with both classes present on the test split.
 - Bootstrap: stratified by group × label, 2000 resamples. Seed rows marked † are seed 0 only.
 - Paper (ICLR 2024) numbers are not on this split or metric (they used per-batch AUC); compare only

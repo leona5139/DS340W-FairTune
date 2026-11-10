@@ -446,6 +446,14 @@ def get_args_parser(add_help=True):
         "baseline for Harvard-GF using the same N-group evaluator)",
     )
 
+    parser.add_argument(
+        "--group_balanced",
+        action="store_true",
+        help="finetune_with_mask.py, --sens_attribute intersectional only: weight each training "
+        "image's loss by 1 / (train count of its group x label cell), normalised to mean 1 over the "
+        "training set. Replaces --compute_cw class weights.",
+    )
+
     # SENSITIVITY-RANKING MASK SEARCH ARGUMENTS (search_mask_sensitivity.py)
     parser.add_argument(
         "--rank_method",

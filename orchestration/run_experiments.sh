@@ -22,6 +22,8 @@
 #       ablation_x     (optional) same ranking ablation, but on the intersectional groups.
 #       paired         re-run every Stage 2 of the intersectional comparison with test predictions
 #                      dumped in fixed order (paired bootstrap). Use the same --seeds-* as before.
+#       balanced       group-balanced Stage-2 loss (--group_balanced) with the same masks/LR as
+#                      paired: bal_base_full_ft, bal_sens_wg, bal_xmask_<attr>. Use the same --seeds-*.
 #       tpe_full       (optional) one FULL original-FairTune TPE search ($TPE_FULL_TRIALS trials,
 #                      default 200) + its Stage 2, on attr $TPE_FULL_ATTR (default intersectional),
 #                      seed 0. A real head-to-head with sensitivity and a measured check of the
@@ -48,7 +50,7 @@ PIPE="${SCRIPT_DIR}/run_pipeline.sh"
 source "${SCRIPT_DIR}/common.sh"   # PY_BIN, TPE_SAMPLE_TRIALS
 
 ORIG_ARGS=("$@")
-PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,43p "$0"; exit 1; }; shift
+PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,45p "$0"; exit 1; }; shift
 
 # Keep the machine awake for the whole run (Linux + systemd only; a no-op elsewhere,
 # e.g. Windows Git Bash). A system suspend mid-training kills the job, and on AMD/ROCm
@@ -162,7 +164,8 @@ stage2_with_mask() {
     local t0 t1; t0=$(date +%s)
     # sensitivity method => Stage 2 uses $SENSITIVITY_LR for every borrowed/baseline mask, so
     # all intersectional comparisons share one lr.
-    run "$PIPE" stage2 "$attr" --dataset "$ds" --search-method sensitivity --mask-path "$mask" ${lr:+--lr "$lr"} "${SMOKE[@]}"
+    run "$PIPE" stage2 "$attr" --dataset "$ds" --search-method sensitivity --mask-path "$mask" ${lr:+--lr "$lr"} \
+        ${S2_BALANCED:+--group-balanced} "${SMOKE[@]}"
     t1=$(date +%s)
     collect "$ds" "$sens" "$dest"
     [[ $DRY -eq 1 ]] || echo "${ds},${label},${attr},${seed},0,$((t1-t0)),$((t1-t0)),mask=$(basename "$mask")" >> "$TIMINGS"
@@ -261,6 +264,26 @@ paired() {
     done
 }
 
+# balanced: group-balanced Stage-2 loss (1 / n(group, label)) for full FT, our intersectional
+# mask and every single-attribute mask; same masks + LR as the paired_* cells -> 2x2 comparison.
+balanced() {
+    local ds seed attr mask
+    make_const_mask "${RUNS_DIR}/_const_masks/ones.npy" 1
+    S2_BALANCED=1
+    for ds in $DATASETS; do
+        for seed in $(seeds_for "$ds"); do
+            stage2_with_mask "$ds" bal_base_full_ft intersectional "$seed" "${RUNS_DIR}/_const_masks/ones.npy"
+            mask=$(newest_mask "${RUNS_DIR}/${ds}/sens_wg/intersectional/seed${seed}/Optuna_Masks/intersectional")
+            [[ -n "$mask" ]] && stage2_with_mask "$ds" bal_sens_wg intersectional "$seed" "$mask"
+            for attr in $(attrs_for "$ds"); do
+                mask=$(newest_mask "${RUNS_DIR}/${ds}/sens_wg/${attr}/seed${seed}/Optuna_Masks/$(sens_of "$attr")")
+                [[ -n "$mask" ]] && stage2_with_mask "$ds" "bal_xmask_${attr}" intersectional "$seed" "$mask"
+            done
+        done
+    done
+    S2_BALANCED=
+}
+
 tpe_full() {
     for ds in $DATASETS; do
         search_run "$ds" tpe_full "${TPE_FULL_ATTR:-intersectional}" 0 optuna worst_group_sensitivity "$TPE_FULL_TRIALS"
@@ -277,6 +300,7 @@ case "$PHASE" in
     ablation_x) ablation intersectional ;;
     tpe_full) tpe_full ;;
     paired) paired ;;
-    *) echo "Unknown phase: $PHASE (expected exp1|exp2|exp3|all|exp3_ablation|ablation|ablation_x|tpe_full|paired)" >&2; exit 1 ;;
+    balanced) balanced ;;
+    *) echo "Unknown phase: $PHASE (expected exp1|exp2|exp3|all|exp3_ablation|ablation|ablation_x|tpe_full|paired|balanced)" >&2; exit 1 ;;
 esac
 say "done: $PHASE"
