@@ -1,0 +1,2 @@
+rank_method,sens_attribute,seed,total_seconds,scoring_seconds,sweep_train_seconds,num_k
+worst_group_sensitivity,age,3,880.6349475383759,31.67429757118225,814.1119899749756,10

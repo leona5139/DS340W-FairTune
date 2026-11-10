@@ -1,0 +1,2 @@
+rank_method,sens_attribute,seed,total_seconds,scoring_seconds,sweep_train_seconds,num_k
+worst_group_sensitivity,intersectional,9,890.1231925487518,31.511190176010132,823.6385560035706,10

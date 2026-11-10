@@ -1,0 +1,4 @@
+seed,overall,best,worst,gap,eod,dpd,train_pct,dataset,attr
+0,0.866,0.876,0.856,0.020000000000000018,0.04,0.043,99.133,glaucoma,gender
+1,0.856,0.859,0.855,0.0040000000000000036,0.06,0.063,99.133,glaucoma,gender
+2,0.856,0.856,0.856,0.0,0.05,0.051,99.133,glaucoma,gender

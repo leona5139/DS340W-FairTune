@@ -1,0 +1,2 @@
+seed,overall,best,worst,gap,train_pct,k,dataset,method
+0,0.8607764990372129,0.9033251231527094,0.7596525096525096,0.14367261350019978,38.546,12,glaucoma,Ranking ablation: random

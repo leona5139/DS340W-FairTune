@@ -1,0 +1,13 @@
+Tuning Method,Mask Path,Intersectional_Group,correct,count,acc,auc
+auto_peft1,zeros.npy,0,70,85,82.353,0.879
+auto_peft1,zeros.npy,1,45,65,69.231,0.741
+auto_peft1,zeros.npy,2,63,77,81.818,0.859
+auto_peft1,zeros.npy,3,61,77,79.221,0.839
+auto_peft1,zeros.npy,4,45,71,63.38,0.759
+auto_peft1,zeros.npy,5,35,42,83.333,0.891
+auto_peft1,zeros.npy,6,57,76,75.0,0.804
+auto_peft1,zeros.npy,7,75,97,77.32,0.83
+auto_peft1,zeros.npy,8,62,89,69.663,0.766
+auto_peft1,zeros.npy,9,51,62,82.258,0.864
+auto_peft1,zeros.npy,10,52,67,77.612,0.809
+auto_peft1,zeros.npy,11,71,92,77.174,0.866

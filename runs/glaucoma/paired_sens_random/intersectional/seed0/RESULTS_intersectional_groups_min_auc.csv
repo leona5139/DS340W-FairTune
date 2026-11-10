@@ -1,0 +1,13 @@
+Tuning Method,Mask Path,Intersectional_Group,correct,count,acc,auc
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,0,71,85,83.529,0.903
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,1,44,65,67.692,0.76
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,2,64,77,83.117,0.899
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,3,63,77,81.818,0.878
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,4,46,71,64.789,0.765
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,5,37,42,88.095,0.897
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,6,60,76,78.947,0.866
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,7,77,97,79.381,0.816
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,8,65,89,73.034,0.803
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,9,49,62,79.032,0.902
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,10,55,67,82.09,0.837
+auto_peft1,sensitivity_random_best_mask_min_auc_0.648.npy,11,68,92,73.913,0.823

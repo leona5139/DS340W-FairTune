@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering
+\caption{One model, four audits: the intersectionally-searched model's test predictions grouped by a single attribute vs.\ by the full intersection (mean $\pm$ SD over seeds).}
+\label{tab:audit}
+\small
+\begin{tabular}{llcc}
+\toprule
+Dataset & Audit grouping & Worst-group AUC & Gap \\
+\midrule
+PAPILA & Sex & 0.751 $\pm$ 0.109 & 0.168 $\pm$ 0.110 \\
+ & Age & 0.753 $\pm$ 0.059 & 0.170 $\pm$ 0.068 \\
+ & Intersectional (4 groups) & 0.579 $\pm$ 0.183 & 0.386 $\pm$ 0.169 \\
+\midrule
+Harvard-GF & Sex & 0.848 $\pm$ 0.010 & 0.010 $\pm$ 0.009 \\
+ & Age & 0.831 $\pm$ 0.005 & 0.022 $\pm$ 0.008 \\
+ & Race & 0.796 $\pm$ 0.019 & 0.092 $\pm$ 0.020 \\
+ & Intersectional (12 groups) & 0.732 $\pm$ 0.044 & 0.186 $\pm$ 0.048 \\
+\bottomrule
+\end{tabular}
+\end{table}

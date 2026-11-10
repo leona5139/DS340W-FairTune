@@ -1,0 +1,2 @@
+seed,overall,best,worst,gap,train_pct,k,dataset,method
+0,0.8586718015315032,0.9273399014778325,0.7431865828092243,0.18415331866860818,99.133,36,glaucoma,Ranking ablation: ERM sensitivity

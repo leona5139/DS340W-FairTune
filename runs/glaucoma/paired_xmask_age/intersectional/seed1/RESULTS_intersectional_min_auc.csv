@@ -1,0 +1,2 @@
+Tuning Method,Train Percent,LR,Test AUC Overall,Test AUC (Best),Test AUC (Worst),Test AUC Difference,EquiOdd_diff,EquiOdd_ratio,DPD,DPR,Mask Path
+Vanilla_auto_peft1,99.133,0.0001,0.862,0.923,0.758,0.165,0.352,0.0,0.434,0.31,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.842.npy

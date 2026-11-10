@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering
+\caption{Masks chosen by the sensitivity search (36 components = 12 blocks $\times$ \{LayerNorm, attention, MLP\}). $k$ = components selected (median [range] over seeds); \#full = seeds with $k{=}36$; type shares are over all selected components.}
+\label{tab:masks}
+\small
+\begin{tabular}{llcccccc}
+\toprule
+Dataset & Grouping & $k$ & \#full & LN & Attn & MLP & Mean block \\
+\midrule
+PAPILA & Sex & 24 [3--36] & 4/10 & 0.44 & 0.31 & 0.26 & 5.8 \\
+ & Age & 30 [18--36] & 5/10 & 0.41 & 0.30 & 0.29 & 5.7 \\
+ & Intersectional & 36 [18--36] & 6/10 & 0.40 & 0.31 & 0.29 & 5.6 \\
+\midrule
+Harvard-GF & Sex & 36 [36--36] & 3/3 & 0.33 & 0.33 & 0.33 & 5.5 \\
+ & Age & 36 [18--36] & 2/3 & 0.40 & 0.30 & 0.30 & 5.5 \\
+ & Race & 36 [18--36] & 2/3 & 0.40 & 0.30 & 0.30 & 5.5 \\
+ & Intersectional & 24 [24--36] & 1/3 & 0.43 & 0.27 & 0.30 & 5.4 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,2 @@
+rank_method,sens_attribute,seed,total_seconds,scoring_seconds,sweep_train_seconds,num_k
+random,intersectional,0,785.3570244312286,1.1320972442626953,747.0879657268524,10

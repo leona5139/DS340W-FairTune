@@ -1,0 +1,109 @@
+model,seed,group,group_label,auc
+Full fine-tuning,0,0,Young Asian F,0.9427339901477833
+Full fine-tuning,0,1,Young Black F,0.7152509652509652
+Full fine-tuning,0,2,Young White F,0.9
+Full fine-tuning,0,3,Young Asian M,0.8711111111111111
+Full fine-tuning,0,4,Young Black M,0.7780448717948718
+Full fine-tuning,0,5,Young White M,0.9204244031830239
+Full fine-tuning,0,6,Older Asian F,0.8608630952380952
+Full fine-tuning,0,7,Older Black F,0.8298507462686567
+Full fine-tuning,0,8,Older White F,0.7594339622641509
+Full fine-tuning,0,9,Older Asian M,0.8545454545454545
+Full fine-tuning,0,10,Older Black M,0.801063829787234
+Full fine-tuning,0,11,Older White M,0.8438623523369286
+Full fine-tuning,1,0,Young Asian F,0.9298029556650246
+Full fine-tuning,1,1,Young Black F,0.750965250965251
+Full fine-tuning,1,2,Young White F,0.9035460992907801
+Full fine-tuning,1,3,Young Asian M,0.8874074074074074
+Full fine-tuning,1,4,Young Black M,0.7700320512820513
+Full fine-tuning,1,5,Young White M,0.8779840848806366
+Full fine-tuning,1,6,Older Asian F,0.8601190476190477
+Full fine-tuning,1,7,Older Black F,0.8298507462686567
+Full fine-tuning,1,8,Older White F,0.7646750524109015
+Full fine-tuning,1,9,Older Asian M,0.8943181818181818
+Full fine-tuning,1,10,Older Black M,0.8414893617021276
+Full fine-tuning,1,11,Older White M,0.8561890087313816
+Full fine-tuning,2,0,Young Asian F,0.9094827586206896
+Full fine-tuning,2,1,Young Black F,0.7413127413127413
+Full fine-tuning,2,2,Young White F,0.8950354609929078
+Full fine-tuning,2,3,Young Asian M,0.882962962962963
+Full fine-tuning,2,4,Young Black M,0.7708333333333334
+Full fine-tuning,2,5,Young White M,0.8594164456233422
+Full fine-tuning,2,6,Older Asian F,0.8266369047619048
+Full fine-tuning,2,7,Older Black F,0.7970149253731343
+Full fine-tuning,2,8,Older White F,0.7458071278825996
+Full fine-tuning,2,9,Older Asian M,0.8397727272727272
+Full fine-tuning,2,10,Older Black M,0.8276595744680851
+Full fine-tuning,2,11,Older White M,0.8608115048793015
+Best single-attribute mask (sex),0,0,Young Asian F,0.9187192118226601
+Best single-attribute mask (sex),0,1,Young Black F,0.7567567567567568
+Best single-attribute mask (sex),0,2,Young White F,0.8773049645390071
+Best single-attribute mask (sex),0,3,Young Asian M,0.8755555555555555
+Best single-attribute mask (sex),0,4,Young Black M,0.7788461538461539
+Best single-attribute mask (sex),0,5,Young White M,0.8885941644562334
+Best single-attribute mask (sex),0,6,Older Asian F,0.8578869047619048
+Best single-attribute mask (sex),0,7,Older Black F,0.7960199004975125
+Best single-attribute mask (sex),0,8,Older White F,0.7746331236897275
+Best single-attribute mask (sex),0,9,Older Asian M,0.9056818181818181
+Best single-attribute mask (sex),0,10,Older Black M,0.7957446808510639
+Best single-attribute mask (sex),0,11,Older White M,0.8726245505906522
+Best single-attribute mask (sex),1,0,Young Asian F,0.9107142857142857
+Best single-attribute mask (sex),1,1,Young Black F,0.7577220077220077
+Best single-attribute mask (sex),1,2,Young White F,0.8695035460992908
+Best single-attribute mask (sex),1,3,Young Asian M,0.8711111111111111
+Best single-attribute mask (sex),1,4,Young Black M,0.8397435897435898
+Best single-attribute mask (sex),1,5,Young White M,0.8859416445623343
+Best single-attribute mask (sex),1,6,Older Asian F,0.8630952380952381
+Best single-attribute mask (sex),1,7,Older Black F,0.8079601990049752
+Best single-attribute mask (sex),1,8,Older White F,0.8013626834381551
+Best single-attribute mask (sex),1,9,Older Asian M,0.884090909090909
+Best single-attribute mask (sex),1,10,Older Black M,0.8031914893617021
+Best single-attribute mask (sex),1,11,Older White M,0.8145865434001027
+Best single-attribute mask (sex),2,0,Young Asian F,0.8823891625615764
+Best single-attribute mask (sex),2,1,Young Black F,0.747104247104247
+Best single-attribute mask (sex),2,2,Young White F,0.8595744680851064
+Best single-attribute mask (sex),2,3,Young Asian M,0.8585185185185186
+Best single-attribute mask (sex),2,4,Young Black M,0.8092948717948718
+Best single-attribute mask (sex),2,5,Young White M,0.8620689655172413
+Best single-attribute mask (sex),2,6,Older Asian F,0.8526785714285714
+Best single-attribute mask (sex),2,7,Older Black F,0.8228855721393035
+Best single-attribute mask (sex),2,8,Older White F,0.7479035639412998
+Best single-attribute mask (sex),2,9,Older Asian M,0.8681818181818182
+Best single-attribute mask (sex),2,10,Older Black M,0.801063829787234
+Best single-attribute mask (sex),2,11,Older White M,0.8767334360554699
+Intersectional mask (ours),0,0,Young Asian F,0.9205665024630542
+Intersectional mask (ours),0,1,Young Black F,0.7712355212355212
+Intersectional mask (ours),0,2,Young White F,0.8808510638297873
+Intersectional mask (ours),0,3,Young Asian M,0.8755555555555555
+Intersectional mask (ours),0,4,Young Black M,0.7996794871794872
+Intersectional mask (ours),0,5,Young White M,0.883289124668435
+Intersectional mask (ours),0,6,Older Asian F,0.8407738095238095
+Intersectional mask (ours),0,7,Older Black F,0.8427860696517413
+Intersectional mask (ours),0,8,Older White F,0.7651991614255765
+Intersectional mask (ours),0,9,Older Asian M,0.8954545454545455
+Intersectional mask (ours),0,10,Older Black M,0.8351063829787234
+Intersectional mask (ours),0,11,Older White M,0.842321520287622
+Intersectional mask (ours),1,0,Young Asian F,0.9057881773399015
+Intersectional mask (ours),1,1,Young Black F,0.749034749034749
+Intersectional mask (ours),1,2,Young White F,0.8829787234042553
+Intersectional mask (ours),1,3,Young Asian M,0.8822222222222222
+Intersectional mask (ours),1,4,Young Black M,0.7652243589743589
+Intersectional mask (ours),1,5,Young White M,0.9098143236074271
+Intersectional mask (ours),1,6,Older Asian F,0.8563988095238095
+Intersectional mask (ours),1,7,Older Black F,0.8064676616915423
+Intersectional mask (ours),1,8,Older White F,0.8092243186582809
+Intersectional mask (ours),1,9,Older Asian M,0.8545454545454545
+Intersectional mask (ours),1,10,Older Black M,0.8138297872340425
+Intersectional mask (ours),1,11,Older White M,0.842321520287622
+Intersectional mask (ours),2,0,Young Asian F,0.8842364532019704
+Intersectional mask (ours),2,1,Young Black F,0.6814671814671814
+Intersectional mask (ours),2,2,Young White F,0.8595744680851064
+Intersectional mask (ours),2,3,Young Asian M,0.8792592592592593
+Intersectional mask (ours),2,4,Young Black M,0.7844551282051282
+Intersectional mask (ours),2,5,Young White M,0.9230769230769231
+Intersectional mask (ours),2,6,Older Asian F,0.8816964285714286
+Intersectional mask (ours),2,7,Older Black F,0.8208955223880597
+Intersectional mask (ours),2,8,Older White F,0.730083857442348
+Intersectional mask (ours),2,9,Older Asian M,0.8727272727272727
+Intersectional mask (ours),2,10,Older Black M,0.7840425531914894
+Intersectional mask (ours),2,11,Older White M,0.8428351309707242

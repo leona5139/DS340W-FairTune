@@ -25,3 +25,6 @@ __pycache__/
 # runs/*.filtered.log.gz + runs/*_eval_metrics.csv hold their content.
 /runs/glaucoma.log
 /runs/papila_v2.log
+/runs/night1.log
+/runs/queue2.log
+/runs/queue3.log

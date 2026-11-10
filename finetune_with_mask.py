@@ -94,6 +94,13 @@ def _dump_test_predictions(model, loader, device, path):
     """Save per-sample test softmax/label/group so orchestration/summarize_runs.py
     can bootstrap CIs on per-group AUC (the evaluate_* helpers only keep running
     averages). One extra forward pass over the small test split."""
+    # Fixed dataset order (the training-time test loader uses a RandomSampler), so predictions of
+    # different runs line up sample by sample and paired bootstrap CIs are possible. This extra
+    # pass happens after training, so it does not touch the training RNG stream.
+    loader = torch.utils.data.DataLoader(
+        loader.dataset, batch_size=loader.batch_size, shuffle=False,
+        num_workers=loader.num_workers, pin_memory=True, drop_last=False,
+    )
     model.eval()
     probs, labels, groups = [], [], []
     with torch.inference_mode():

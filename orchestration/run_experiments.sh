@@ -19,6 +19,14 @@
 #                      each exp2 single-attribute mask, plus full-FT (all-ones) and head-only
 #                      (all-zeros) masks.
 #       ablation       (optional) sensitivity with rank_method random / erm_sensitivity, seed 0.
+#       ablation_x     (optional) same ranking ablation, but on the intersectional groups.
+#       paired         re-run every Stage 2 of the intersectional comparison with test predictions
+#                      dumped in fixed order (paired bootstrap). Use the same --seeds-* as before.
+#       tpe_full       (optional) one FULL original-FairTune TPE search ($TPE_FULL_TRIALS trials,
+#                      default 200) + its Stage 2, on attr $TPE_FULL_ATTR (default intersectional),
+#                      seed 0. A real head-to-head with sensitivity and a measured check of the
+#                      exp1 extrapolation. One long cell (~10 h on PAPILA): NOT resumable
+#                      mid-search, so give it an uninterrupted window. Use --dataset papila.
 #   --dataset {papila|glaucoma|both}   (default both)
 #   --seeds-papila "0 1 2"  --seeds-glaucoma "0"   (defaults)
 #   --smoke-test           tiny epochs/trials (passed through to run_pipeline.sh)
@@ -40,7 +48,7 @@ PIPE="${SCRIPT_DIR}/run_pipeline.sh"
 source "${SCRIPT_DIR}/common.sh"   # PY_BIN, TPE_SAMPLE_TRIALS
 
 ORIG_ARGS=("$@")
-PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,35p "$0"; exit 1; }; shift
+PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,43p "$0"; exit 1; }; shift
 
 # Keep the machine awake for the whole run (Linux + systemd only; a no-op elsewhere,
 # e.g. Windows Git Bash). A system suspend mid-training kills the job, and on AMD/ROCm
@@ -144,9 +152,9 @@ search_run() {
     [[ $DRY -eq 1 ]] || echo "${ds},${label},${attr},${seed},$((t1-t0)),$((t2-t1)),$((t2-t0)),${trials}" >> "$TIMINGS"
 }
 
-# stage2_with_mask DATASET LABEL ATTR SEED MASK  — Stage 2 on ATTR's groups with a given mask.
+# stage2_with_mask DATASET LABEL ATTR SEED MASK [LR]  — Stage 2 on ATTR's groups with a given mask.
 stage2_with_mask() {
-    local ds="$1" label="$2" attr="$3" seed="$4" mask="$5"
+    local ds="$1" label="$2" attr="$3" seed="$4" mask="$5" lr="${6:-}"
     local sens dest; sens="$(sens_of "$attr")"
     dest="${RUNS_DIR}/${ds}/${label}/${attr}/seed${seed}"
     [[ -f "$dest/DONE" ]] && { say "skip (done): $dest"; return; }
@@ -154,7 +162,7 @@ stage2_with_mask() {
     local t0 t1; t0=$(date +%s)
     # sensitivity method => Stage 2 uses $SENSITIVITY_LR for every borrowed/baseline mask, so
     # all intersectional comparisons share one lr.
-    run "$PIPE" stage2 "$attr" --dataset "$ds" --search-method sensitivity --mask-path "$mask" "${SMOKE[@]}"
+    run "$PIPE" stage2 "$attr" --dataset "$ds" --search-method sensitivity --mask-path "$mask" ${lr:+--lr "$lr"} "${SMOKE[@]}"
     t1=$(date +%s)
     collect "$ds" "$sens" "$dest"
     [[ $DRY -eq 1 ]] || echo "${ds},${label},${attr},${seed},0,$((t1-t0)),$((t1-t0)),mask=$(basename "$mask")" >> "$TIMINGS"
@@ -214,10 +222,49 @@ exp3_ablation() {
 }
 
 ablation() {
-    for ds in $DATASETS; do for attr in $(attrs_for "$ds"); do
+    local attrs_override="${1:-}"
+    for ds in $DATASETS; do for attr in ${attrs_override:-$(attrs_for "$ds")}; do
         search_run "$ds" sens_random "$attr" 0 sensitivity random k10
         search_run "$ds" sens_erm "$attr" 0 sensitivity erm_sensitivity k10
     done; done
+}
+
+# paired: re-run every Stage 2 that the intersectional comparison uses, unchanged except that the
+# test predictions are now dumped in fixed dataset order (finetune_with_mask.py), so all models'
+# predictions line up and paired bootstrap CIs are possible. Masks/lrs are reused, no new search.
+newest_mask() { ls -t "$1"/*.npy 2>/dev/null | head -1 || true; }
+paired() {
+    local ds seed attr mask
+    make_const_mask "${RUNS_DIR}/_const_masks/ones.npy" 1
+    make_const_mask "${RUNS_DIR}/_const_masks/zeros.npy" 0
+    for ds in $DATASETS; do
+        for seed in $(seeds_for "$ds"); do
+            mask=$(newest_mask "${RUNS_DIR}/${ds}/sens_wg/intersectional/seed${seed}/Optuna_Masks/intersectional")
+            [[ -n "$mask" ]] && stage2_with_mask "$ds" paired_sens_wg intersectional "$seed" "$mask"
+            stage2_with_mask "$ds" paired_base_full_ft intersectional "$seed" "${RUNS_DIR}/_const_masks/ones.npy"
+            stage2_with_mask "$ds" paired_base_head_only intersectional "$seed" "${RUNS_DIR}/_const_masks/zeros.npy"
+            for attr in $(attrs_for "$ds"); do
+                mask=$(newest_mask "${RUNS_DIR}/${ds}/sens_wg/${attr}/seed${seed}/Optuna_Masks/$(sens_of "$attr")")
+                [[ -n "$mask" ]] && stage2_with_mask "$ds" "paired_xmask_${attr}" intersectional "$seed" "$mask"
+            done
+        done
+        for lab in sens_random sens_erm; do
+            mask=$(newest_mask "${RUNS_DIR}/${ds}/${lab}/intersectional/seed0/Optuna_Masks/intersectional")
+            [[ -n "$mask" ]] && stage2_with_mask "$ds" "paired_${lab}" intersectional 0 "$mask"
+        done
+        local tdir="${RUNS_DIR}/${ds}/tpe_full/intersectional/seed0"
+        mask=$(newest_mask "$tdir/Optuna_Masks/intersectional")
+        if [[ -n "$mask" ]]; then
+            local lr; lr=$(tail -n 1 "$tdir"/Optuna\ Run\ Stats/Best_Params*.csv | awk -F, '{print $NF}')
+            stage2_with_mask "$ds" paired_tpe_full intersectional 0 "$mask" "$lr"
+        fi
+    done
+}
+
+tpe_full() {
+    for ds in $DATASETS; do
+        search_run "$ds" tpe_full "${TPE_FULL_ATTR:-intersectional}" 0 optuna worst_group_sensitivity "$TPE_FULL_TRIALS"
+    done
 }
 
 case "$PHASE" in
@@ -227,6 +274,9 @@ case "$PHASE" in
     all) exp1; sens_grid both ;;
     exp3_ablation) exp3_ablation ;;
     ablation) ablation ;;
-    *) echo "Unknown phase: $PHASE (expected exp1|exp2|exp3|all|exp3_ablation|ablation)" >&2; exit 1 ;;
+    ablation_x) ablation intersectional ;;
+    tpe_full) tpe_full ;;
+    paired) paired ;;
+    *) echo "Unknown phase: $PHASE (expected exp1|exp2|exp3|all|exp3_ablation|ablation|ablation_x|tpe_full|paired)" >&2; exit 1 ;;
 esac
 say "done: $PHASE"

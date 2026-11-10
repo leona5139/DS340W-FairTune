@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\centering
+\caption{Search cost. TPE: original FairTune, mean seconds per trial over a 5-trial sample, extrapolated to 200 trials (PAPILA intersectional also measured over a full 200-trial run, in parentheses). Sensitivity: seed 0, scoring pass + 10-point $k$-sweep + Stage~2 fine-tune. Speed-up = TPE (200) / sensitivity search; total includes one Stage~2 for both.}
+\label{tab:compute}
+\small
+\begin{tabular}{llrrrrrrrr}
+\toprule
+ & & \multicolumn{2}{c}{TPE} & \multicolumn{4}{c}{Sensitivity (ours)} & \multicolumn{2}{c}{Speed-up} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-8}\cmidrule(lr){9-10}
+Dataset & Grouping & s/trial & 200 trials (h) & Scoring (min) & Sweep (h) & Stage 2 (min) & Total (h) & Search & Total \\
+\midrule
+PAPILA & Sex & 177 $\pm$ 7 & 9.8 & 0.5 & 0.23 & 3.3 & 0.30 & 40$\times$ & 33$\times$ \\
+ & Age & 177 $\pm$ 6 & 9.8 & 0.5 & 0.23 & 3.4 & 0.30 & 40$\times$ & 33$\times$ \\
+ & Intersectional & 180 $\pm$ 5 & 10.0 (9.7) & 0.5 & 0.23 & 3.4 & 0.30 & 40$\times$ & 33$\times$ \\
+\midrule
+Harvard-GF & Sex & 750 $\pm$ 20 & 41.6 & 2.6 & 1.31 & 14.1 & 1.61 & 30$\times$ & 26$\times$ \\
+ & Age & 760 $\pm$ 15 & 42.2 & 2.6 & 1.31 & 12.7 & 1.59 & 31$\times$ & 27$\times$ \\
+ & Race & 752 $\pm$ 21 & 41.8 & 2.6 & 1.32 & 13.1 & 1.61 & 30$\times$ & 26$\times$ \\
+ & Intersectional & 803 $\pm$ 10 & 44.6 & 2.6 & 1.39 & 14.3 & 1.69 & 31$\times$ & 26$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table*}

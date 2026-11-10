@@ -1,0 +1,5 @@
+Tuning Method,Mask Path,Intersectional_Group,correct,count,acc,auc
+auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.842.npy,0,11,12,91.667,0.95
+auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.842.npy,1,5,8,62.5,0.5
+auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.842.npy,2,14,16,87.5,0.958
+auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.842.npy,3,7,10,70.0,0.708

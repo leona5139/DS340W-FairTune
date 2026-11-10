@@ -1,0 +1,2 @@
+rank_method,sens_attribute,seed,total_seconds,scoring_seconds,sweep_train_seconds,num_k
+erm_sensitivity,intersectional,0,888.0434985160828,30.808117389678955,821.8638799190521,10

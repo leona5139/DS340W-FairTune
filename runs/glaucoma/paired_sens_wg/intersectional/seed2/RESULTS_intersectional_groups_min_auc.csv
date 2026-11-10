@@ -1,0 +1,13 @@
+Tuning Method,Mask Path,Intersectional_Group,correct,count,acc,auc
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,0,74,85,87.059,0.884
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,1,43,65,66.154,0.681
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,2,63,77,81.818,0.86
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,3,63,77,81.818,0.879
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,4,47,71,66.197,0.784
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,5,39,42,92.857,0.923
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,6,56,76,73.684,0.882
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,7,74,97,76.289,0.821
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,8,63,89,70.787,0.73
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,9,50,62,80.645,0.873
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,10,48,67,71.642,0.784
+Vanilla_auto_peft1,sensitivity_worst_group_sensitivity_best_mask_min_auc_0.711.npy,11,70,92,76.087,0.843

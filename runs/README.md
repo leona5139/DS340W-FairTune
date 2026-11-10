@@ -17,8 +17,23 @@ runs/
   papila_v2.filtered.log.gz        not committed)
   glaucoma_config.log              Harvard-GF preprocessing / config log
   <dataset>/tpe_sample/<attr>/seed0/            Experiment 1: original FairTune TPE, 5-trial sample
-  <dataset>/sens_wg/<attr>/seed{0,1,2}/         Experiments 2 & 3: sensitivity-ranking search + fine-tune
+  <dataset>/sens_wg/<attr>/seed<N>/             Experiments 2 & 3: sensitivity-ranking search + fine-tune
+                                                (PAPILA seeds 0-9, Harvard-GF 0-2)
+  <dataset>/xmask_<attr>/intersectional/seed<N>/  single-attribute mask, fine-tuned + evaluated on intersectional groups
+  <dataset>/base_full_ft|base_head_only/intersectional/seed<N>/  all-ones / all-zeros mask (runs/_const_masks/)
+  <dataset>/sens_random|sens_erm/intersectional/seed0/  ranking ablation: random order / ERM-loss sensitivity
+  papila/tpe_full/intersectional/seed0/         original FairTune TPE, full 200 trials (+ Stage 2)
+  <dataset>/paired_<label>/intersectional/seed<N>/  Stage-2 re-run of <label> with the SAME mask + LR, test
+                                                predictions in a fixed order -> paired comparisons (see below)
+  tpe_full_pauses.txt                          PAUSED/RESUMED times of the tpe_full run (subtract from its time)
+  {night1,queue2,queue3}.filtered.log.gz      driver logs of these runs, sklearn warnings removed (raw logs not committed)
 ```
+
+**Paired re-runs.** The original Stage 2 iterates the test set with a shuffled loader, so `test_predictions_*.npz`
+of different runs are in different orders. `finetune_with_mask.py` now dumps predictions with a sequential
+loader after training; `run_experiments.sh paired` re-ran every intersectional-evaluated model that way. Use
+`paired_*` for any cross-model comparison; identical-mask re-runs also measure Stage-2 noise
+(`paper_results/data/rerun_variability.csv`).
 
 `<dataset>` is `papila` (attrs: gender, age, intersectional = age x sex, 4 groups) or
 `glaucoma` = Harvard-GF (attrs: gender, age, race, intersectional = age x sex x race, 12 groups).
