@@ -6,8 +6,8 @@ sized for IEEE two-column (3.5 in column / 7.16 in page). `data/` holds the numb
 
 | Item | What it shows | Source runs |
 |---|---|---|
-| `T1_compute` | TPE s/trial, 200-trial extrapolation (PAPILA intersectional: measured full run in parentheses), sensitivity scoring / sweep / Stage 2 / total, speed-up | `tpe_sample`, `tpe_full`, `sens_wg` seed 0 |
-| `F1_cost_vs_quality` | PAPILA intersectional: best-so-far **validation** worst-group AUC vs cumulative GPU hours, TPE (200 trials) vs sensitivity (10 seeds) | `tpe_full`, `sens_wg` |
+| `T1_compute` | Original FairTune s/trial, 200-trial extrapolation (PAPILA intersectional: measured full run in parentheses), sensitivity scoring / sweep / Stage 2 / total, speed-up | `tpe_sample`, `tpe_full`, `sens_wg` seed 0 |
+| `F1_cost_vs_quality` | PAPILA intersectional: best-so-far **validation** worst-group AUC vs cumulative GPU hours, Original FairTune (200 trials) vs sensitivity (10 seeds) | `tpe_full`, `sens_wg` |
 | `T2_single_attribute` | Single-attribute cells: overall, best, worst, gap, EOD, DPD (mean ± SD over seeds) | `sens_wg` |
 | `T3_single_vs_intersectional_audit` | The intersectional model audited by sex / age / race / full intersection | `paired_sens_wg` |
 | `T4_intersectional_ablation` + `F2_worst_group_by_method` | Every model on the intersectional groups; Δworst vs ours with **paired** bootstrap CI | `paired_*` |
@@ -35,10 +35,10 @@ everything produced by the search itself (masks, k-sweeps, timings, T2).
   why the original and paired numbers for the same cell differ (e.g. ours on PAPILA 0.483 → 0.579).
 - **No significant differences.** All Δworst CIs in T4 include 0 (PAPILA head-only is closest: upper
   bound +0.016). `seeds_beating_ours` in `data/T4_intersectional_ablation.csv` gives per-seed win counts.
-- **TPE validation overfitting (single run).** Full TPE reached 0.914 validation worst-group AUC on
+- **Original FairTune validation overfitting (single run).** Full original FairTune reached 0.914 validation worst-group AUC on
   PAPILA's 82 validation eyes; its test worst-group AUC was 0.417 in the original run and 0.667 in the
   re-run (46 test eyes, Young M has very few positives).
-- **TPE runtime.** Measured 9.7 GPU-h (pause-corrected) vs 10.0 h extrapolated from 5 trials. 192 of
+- **Original FairTune runtime.** Measured 9.7 GPU-h (pause-corrected) vs 10.0 h extrapolated from 5 trials. 192 of
   200 trials were pruned, yet mean trial time stayed close to the sample's, so pruning saves little here.
 - Worst/best = min/max over groups with both classes present on the test split.
 - Bootstrap: stratified by group × label, 2000 resamples. Seed rows marked † are seed 0 only.

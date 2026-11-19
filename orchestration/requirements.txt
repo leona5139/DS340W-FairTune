@@ -26,3 +26,4 @@ scikit-learn
 openpyxl
 matplotlib
 seaborn
+scipy

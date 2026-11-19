@@ -63,7 +63,7 @@ OURS = "paired_sens_wg"  # the intersectional model used everywhere models are c
 EXTRA_ROWS = [  # seed-0-only rows, shown under a rule
     ("sens_random", "intersectional", "  Ranking ablation: random"),
     ("sens_erm", "intersectional", "  Ranking ablation: ERM sensitivity"),
-    ("tpe_full", "intersectional", "  Original FairTune, TPE 200 trials"),
+    ("tpe_full", "intersectional", "  Original FairTune (200 trials)"),
 ]
 
 
@@ -228,13 +228,13 @@ def t1_compute(runs, out):
 
 def t1_table(df, out):
     lines = [r"\begin{table*}[t]", r"\centering",
-             r"\caption{Search cost. TPE: original FairTune, mean seconds per trial over a 5-trial sample, "
+             r"\caption{Search cost. Original FairTune: mean seconds per trial over a 5-trial sample, "
              r"extrapolated to 200 trials (PAPILA intersectional also measured over a full 200-trial run, "
              r"in parentheses). Sensitivity: seed 0, scoring pass + 10-point $k$-sweep + Stage~2 fine-tune. "
-             r"Speed-up = TPE (200) / sensitivity search; total includes one Stage~2 for both.}",
+             r"Speed-up = Original FairTune (200 trials) / sensitivity search; total includes one Stage~2 for both.}",
              r"\label{tab:compute}", r"\small",
              r"\begin{tabular}{llrrrrrrrr}", r"\toprule",
-             r" & & \multicolumn{2}{c}{TPE} & \multicolumn{4}{c}{Sensitivity (ours)} & \multicolumn{2}{c}{Speed-up} \\",
+             r" & & \multicolumn{2}{c}{Original FairTune} & \multicolumn{4}{c}{Sensitivity (ours)} & \multicolumn{2}{c}{Speed-up} \\",
              r"\cmidrule(lr){3-4}\cmidrule(lr){5-8}\cmidrule(lr){9-10}",
              r"Dataset & Grouping & s/trial & 200 trials (h) & Scoring (min) & Sweep (h) & Stage 2 (min) & Total (h) & Search & Total \\",
              r"\midrule"]
@@ -272,11 +272,11 @@ def f1_cost_quality(runs, out):
         comp = r.state == "COMPLETE"
         r["best"] = r.min_auc.where(comp).ffill().cummax()  # ffill: pruned trials keep the line going
         ax.scatter(r.cum_h[~comp], r.min_auc[~comp], s=4, color=C["blue"], alpha=0.25, lw=0,
-                   label="TPE trial (pruned)")
-        ax.scatter(r.cum_h[comp], r.min_auc[comp], s=9, color=C["blue"], lw=0, label="TPE trial (completed)")
-        ax.step(r.cum_h, r.best, where="post", color=C["blue"], label="TPE best so far")
+                   label="Original FairTune trial (pruned)")
+        ax.scatter(r.cum_h[comp], r.min_auc[comp], s=9, color=C["blue"], lw=0, label="Original FairTune trial (completed)")
+        ax.step(r.cum_h, r.best, where="post", color=C["blue"], label="Original FairTune best so far")
         for _, x in r.iterrows():
-            data.append(dict(method="tpe", seed=0, step=int(x.number), state=x.state, cum_h=x.cum_h,
+            data.append(dict(method="original_fairtune", seed=0, step=int(x.number), state=x.state, cum_h=x.cum_h,
                              value=x.min_auc, best_so_far=x.best))
     sens_curves = []
     for i, seed in enumerate(seeds_of(runs, ds, "sens_wg", attr)):
@@ -302,7 +302,7 @@ def f1_cost_quality(runs, out):
     ax.xaxis.set_minor_formatter(NullFormatter())
     ax.set_xlabel("Cumulative search time (GPU hours, log scale)")
     ax.set_ylabel("Validation worst-group AUC")
-    ax.set_title("PAPILA, age $\\times$ sex groups" + ("" if have_tpe else "  [TPE run pending]"), loc="left")
+    ax.set_title("PAPILA, age $\\times$ sex groups" + ("" if have_tpe else "  [Original FairTune run pending]"), loc="left")
     ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=2, fontsize=6)
     save_fig(fig, out, "F1_cost_vs_quality")
     pd.DataFrame(data).to_csv(f"{out}/data/F1_cost_vs_quality.csv", index=False)

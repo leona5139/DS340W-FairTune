@@ -51,7 +51,7 @@ papila,Mask searched on intersection (ours),8,0.5833333333333334,0.8799019607843
 papila,Mask searched on intersection (ours),9,0.75,0.8333333333333334
 papila,Ranking ablation: random,0,0.3333333333333333,0.821078431372549
 papila,Ranking ablation: ERM sensitivity,0,0.6666666666666666,0.8553921568627451
-papila,"Original FairTune, TPE 200 trials",0,0.6666666666666666,0.8799019607843137
+papila,Original FairTune (200 trials),0,0.6666666666666666,0.8799019607843137
 glaucoma,Full fine-tuning,0,0.7152509652509652,0.8552336313744222
 glaucoma,Full fine-tuning,1,0.750965250965251,0.8619457754292738
 glaucoma,Full fine-tuning,2,0.7413127413127413,0.8468098657073625
