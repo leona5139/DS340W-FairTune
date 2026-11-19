@@ -81,7 +81,7 @@ sudo apt install python3-venv python3-pip git
 nvidia-smi                                   # should list your GPU; install the NVIDIA driver first if not
 python3 -m venv .venv && source .venv/bin/activate
 # pick the cuXXX that matches your driver (pytorch.org/get-started/locally), e.g.:
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 pip install -r orchestration/requirements.txt
 ```
 </details>
@@ -111,10 +111,16 @@ ROCm builds of PyTorch expose the GPU through the normal `torch.cuda` API, so th
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                # note: Scripts, not bin
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124   # match your driver's CUDA version
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128   # see note below
 pip install -r orchestration/requirements.txt
 ```
-Use `python` wherever this README says `python3`. More detail: [CUDA_SETUP.md](CUDA_SETUP.md).
+`cu128` works for any recent driver (`nvidia-smi` shows "CUDA Version: 12.8" or higher) and is required for
+RTX 50-series cards. If your driver reports a lower CUDA version, update the driver, or pick the matching command
+from the selector at [pytorch.org/get-started/locally](https://pytorch.org/get-started/locally/) (Windows, Pip,
+Python, CUDA). Older indexes such as `cu124` have no builds for current Python versions.
+
+Use `python` wherever this README says `python3`. Turn off sleep before a long run (Settings > System > Power >
+"Put my device to sleep": Never), because a sleep kills the job. More detail: [CUDA_SETUP.md](CUDA_SETUP.md).
 </details>
 
 <details>

@@ -19,7 +19,7 @@ nvidia-smi
 ```
 
 This should print your GPU name and the maximum CUDA version the driver
-supports — note that CUDA version, you'll need it in step 4.
+supports — note that CUDA version, you'll need it in step 5.
 
 ## 2. Python
 
@@ -31,14 +31,12 @@ python --version
 
 ## 3. Clone the repo
 
-This clone is the actual assignment submission
-(`github.com/leona5139/DS340W-FairTune`), already containing the
-`orchestration/` scripts and pre-generated `data_splits/*.csv` prepared ahead
-of time:
+The repo already contains the `orchestration/` scripts and the PAPILA split
+CSVs (`data_splits_papila/`):
 
 ```bash
-git clone https://github.com/leona5139/DS340W-FairTune.git ~/fairtune_papila/FairTune
-cd ~/fairtune_papila/FairTune
+git clone https://github.com/leona5139/DS340W-FairTune.git
+cd DS340W-FairTune
 ```
 
 (Any path works — PAPILA and the repo no longer need to live inside a Linux
@@ -64,15 +62,17 @@ on `PATH`.
 
 ## 5. Install CUDA-enabled PyTorch
 
-Get the current recommended install command for your CUDA version (from
-step 1) at pytorch.org/get-started/locally — it looks like:
-
 ```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cuXXX
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 
-(`cuXXX` e.g. `cu121`/`cu124` — pick the one matching your driver's supported
-CUDA version, rounding down if there's no exact match.)
+`cu128` needs a driver whose `nvidia-smi` shows "CUDA Version: 12.8" or
+higher (any driver from 2025 on), and it is the minimum for RTX 50-series
+cards. If your driver shows less, update the driver (easiest), or use the
+selector at pytorch.org/get-started/locally (Windows / Pip / Python / CUDA)
+and take the command it gives. Don't use older indexes like `cu121`/`cu124`:
+they stop at old PyTorch versions with no wheels for current Python, so pip
+fails with "No matching distribution found for torch".
 
 ## 6. Install the remaining Python dependencies
 
@@ -93,18 +93,47 @@ If `is_available()` is `False`, re-check step 5 — a CPU-only wheel got
 installed instead of a CUDA one, usually from omitting `--index-url` or
 mismatching the CUDA version against the driver.
 
-## Now you're ready
+## 8. Get PAPILA and turn off sleep
 
-Still inside the activated `.venv`:
+Download PAPILA (link in the README) and extract it so that
+`~/fairtune_papila/data/Papila/` contains `ClinicalData/` and `FundusImages/`
+(in Git Bash, `~` is `C:\Users\<you>`). Any other location works if you add
+`--papila-dir <path>` to the `config` command below.
+
+Set Settings > System > Power > "Put my device to sleep" to **Never** (on
+battery too, for a laptop) for the duration of the run. Windows sleeping
+mid-run kills the job.
+
+## 9. Run PAPILA, sensitivity search, one seed
+
+Still inside the activated `.venv`, from the repo root:
 
 ```bash
-python orchestration/verify_env.py                               # seconds
-bash orchestration/run_pipeline.sh all gender --smoke-test \
-    --repo-dir ~/fairtune_papila/FairTune_smoketest               # minutes, disposable clone
-bash orchestration/run_pipeline.sh all                             # the real, recorded run
+python orchestration/verify_env.py                              # seconds; must end with "Environment looks good."
+./orchestration/run_pipeline.sh config --dataset papila          # writes config.yaml for this machine
+
+# optional smoke test (a few minutes; outputs go to runs_smoke/, not the real results)
+./orchestration/run_experiments.sh exp2 --smoke-test --dataset papila --seeds-papila 0 --runs-dir runs_smoke
+
+# the real run: sensitivity mask search + fine-tune, seed 0 (~20-30 min on a modern GPU)
+./orchestration/run_pipeline.sh all gender --dataset papila --search-method sensitivity
 ```
 
-See `orchestration/run_pipeline.sh`'s header comment for full usage, and
-`CLAUDE.md` for why the smoke test uses a separate throwaway clone (mask
-discovery is "most-recently-modified `.npy`," so a smoke-test mask must never
-land in the same `Optuna_Masks/` tree as the real result).
+Swap `gender` for `age` or `intersectional` (age x sex) for the other
+fairness attributes. To do all three for seed 0 in one go, with each run's
+outputs kept separate under `runs_windows/`:
+
+```bash
+./orchestration/run_experiments.sh exp2 --dataset papila --seeds-papila 0 --runs-dir runs_windows   # gender, age
+./orchestration/run_experiments.sh exp3 --dataset papila --seeds-papila 0 --runs-dir runs_windows   # intersectional
+```
+
+Results: `vit_base/papila/RESULTS_<attr>_min_auc.csv` (or under
+`runs_windows/papila/sens_wg/<attr>/seed0/` for the second form).
+
+If something goes wrong:
+
+- **`verify_env.py` reports a DataLoader hang**: put `WORKERS=0 ` in front of
+  the run commands (e.g. `WORKERS=0 ./orchestration/run_pipeline.sh ...`).
+- **CUDA out of memory**: `BATCH_SIZE=16 ./orchestration/run_pipeline.sh ...`.
+- **RTX 20-series or older (no bf16)**: `AMP_DTYPE=fp16 ./orchestration/run_pipeline.sh ...`.

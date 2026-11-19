@@ -87,7 +87,7 @@ def check_dataloader(workers, timeout_s):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--workers", type=int, default=4, help="num_workers value to smoke-test (match what run_pipeline.sh will actually use)")
-    ap.add_argument("--timeout", type=int, default=60, help="Seconds to wait before declaring a DataLoader hang")
+    ap.add_argument("--timeout", type=int, default=180, help="Seconds to wait before declaring a DataLoader hang (generous: on Windows each spawned worker re-imports torch, and antivirus scanning can slow that a lot)")
     args = ap.parse_args()
 
     check_device()
