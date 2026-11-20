@@ -92,7 +92,7 @@ or all three at once, ordered so that every seed-0 run (the timing runs) finishe
 ```
 ./orchestration/run_experiments.sh all
 ```
-Useful options: `--dataset papila|glaucoma`, `--seeds-papila "0"` (add seeds later by rerunning with `"0 1 2"` — finished runs are skipped), `--dry-run` (print the command list), `--seeds-glaucoma "0 1"` (a second Harvard-GF seed later), `TPE_SAMPLE_TRIALS=10 ./orchestration/run_experiments.sh exp1` (bigger TPE sample than the default 5; delete that cell's dir first if it already ran).
+Useful options: `--dataset papila|glaucoma`, `--attrs "gender"` (limit the single-attribute list, e.g. sex only; `intersectional` in exp3 is not affected), `--seeds-papila "0"` (add seeds later by rerunning with `"0 1 2"` — finished runs are skipped), `--dry-run` (print the command list), `--seeds-glaucoma "0 1"` (a second Harvard-GF seed later), `TPE_SAMPLE_TRIALS=10 ./orchestration/run_experiments.sh exp1` (bigger TPE sample than the default 5; delete that cell's dir first if it already ran).
 
 Rules:
 - **Don't let the machine sleep.** On Linux with systemd, `run_experiments.sh` holds a `systemd-inhibit` sleep/idle lock for its whole run (`FAIRTUNE_NO_INHIBIT=1` disables it). On other systems, turn off auto-suspend yourself. A suspend mid-run kills the job, and on AMD/ROCm the GPU reset afterwards can leave compute unusable until a reboot. The driver is resumable, so after a crash just rerun the same command: finished runs are skipped, and the interrupted one restarts from scratch.
@@ -151,9 +151,9 @@ The full grid takes days and isn't meant to be reproduced. This section checks t
    ./orchestration/run_experiments.sh all --smoke-test --dataset papila --seeds-papila 0 --runs-dir runs_smoke
    python orchestration/summarize_runs.py --runs-dir runs_smoke
    ```
-5. Optional, one real cell (30 epochs, roughly an hour or more depending on GPU): `./orchestration/run_experiments.sh exp2 --dataset papila --seeds-papila 0`.
+5. Optional, one real cell (30 epochs, roughly an hour or more depending on GPU), e.g. PAPILA sex only: `./orchestration/run_experiments.sh exp2 --dataset papila --seeds-papila 0 --attrs gender --runs-dir runs_local`. Use a fresh `--runs-dir`: the committed `runs/` already contains the finished cells, so the driver would skip them.
 
-The Windows/CUDA path has run the original PAPILA pipeline end to end before. The sensitivity, Harvard-GF and intersectional paths have only been exercised on Linux, so if anything breaks on Windows, step 4 is where it will show up.
+The Windows/CUDA path (Git Bash, RTX 4070 Ti, torch 2.14 + cu132) has run the original PAPILA pipeline and the PAPILA sensitivity cell for sex (`exp2 --attrs gender`, smoke test, Stage 1 + Stage 2) end to end. The Harvard-GF and intersectional paths have only been exercised on Linux, so if anything breaks on Windows, step 4 is where it will show up.
 
 ## Caveats to state in the paper
 

@@ -36,8 +36,8 @@ data:
     train_csv: ''
     val_csv: ''
   papila:
-    img_path: /home/leona/Documents/DS 340W/DS340W-FairTune/data/Papila/FundusImages
-    root_path: /home/leona/Documents/DS 340W/DS340W-FairTune/data/Papila/FundusImages
-    test_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_papila/test.csv
-    train_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_papila/train.csv
-    val_csv: /home/leona/Documents/DS 340W/DS340W-FairTune/data_splits_papila/val.csv
+    img_path: C:/Users/secre/fairtune_papila/data/Papila/FundusImages
+    root_path: C:/Users/secre/fairtune_papila/data/Papila/FundusImages
+    test_csv: C:/Users/secre/Desktop/leonya/DS340W-FairTune/data_splits_papila/test.csv
+    train_csv: C:/Users/secre/Desktop/leonya/DS340W-FairTune/data_splits_papila/train.csv
+    val_csv: C:/Users/secre/Desktop/leonya/DS340W-FairTune/data_splits_papila/val.csv

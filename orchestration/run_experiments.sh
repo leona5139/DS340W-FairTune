@@ -31,6 +31,8 @@
 #                      mid-search, so give it an uninterrupted window. Use --dataset papila.
 #   --dataset {papila|glaucoma|both}   (default both)
 #   --seeds-papila "0 1 2"  --seeds-glaucoma "0"   (defaults)
+#   --attrs "gender"       restrict the single-attribute list (exp2/exp1/ablation) to these
+#                          attrs, e.g. --attrs gender for PAPILA sex only (default: all)
 #   --smoke-test           tiny epochs/trials (passed through to run_pipeline.sh)
 #   --dry-run              print the commands, run nothing
 #   --runs-dir DIR         default: <repo>/runs
@@ -50,7 +52,7 @@ PIPE="${SCRIPT_DIR}/run_pipeline.sh"
 source "${SCRIPT_DIR}/common.sh"   # PY_BIN, TPE_SAMPLE_TRIALS
 
 ORIG_ARGS=("$@")
-PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,45p "$0"; exit 1; }; shift
+PHASE="${1:-}"; [[ -n "$PHASE" ]] || { sed -n 2,47p "$0"; exit 1; }; shift
 
 # Keep the machine awake for the whole run (Linux + systemd only; a no-op elsewhere,
 # e.g. Windows Git Bash). A system suspend mid-training kills the job, and on AMD/ROCm
@@ -72,6 +74,7 @@ SEEDS_GLAUCOMA="0"
 SMOKE=()
 DRY=0
 RUNS_DIR="${REPO_DIR}/runs"
+ATTRS_FILTER=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --dataset) [[ "$2" == both ]] && DATASETS="papila glaucoma" || DATASETS="$2"; shift 2 ;;
@@ -80,6 +83,7 @@ while [[ $# -gt 0 ]]; do
         --smoke-test) SMOKE=(--smoke-test); shift ;;
         --dry-run) DRY=1; shift ;;
         --runs-dir) RUNS_DIR="$2"; shift 2 ;;
+        --attrs) ATTRS_FILTER="$2"; shift 2 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
@@ -88,7 +92,13 @@ mkdir -p "$RUNS_DIR"
 TIMINGS="${RUNS_DIR}/timings.csv"
 [[ -f "$TIMINGS" || $DRY -eq 1 ]] || echo "dataset,label,attr,seed,stage1_seconds,stage2_seconds,total_seconds,num_trials_or_k" > "$TIMINGS"
 
-attrs_for() { [[ "$1" == papila ]] && echo "gender age" || echo "gender age race"; }
+attrs_for() {
+    local all a out=()
+    [[ "$1" == papila ]] && all="gender age" || all="gender age race"
+    [[ -z "$ATTRS_FILTER" ]] && { echo "$all"; return; }
+    for a in $all; do [[ " $ATTRS_FILTER " == *" $a "* ]] && out+=("$a"); done
+    echo "${out[*]:-}"
+}
 seeds_for() { [[ "$1" == papila ]] && echo "$SEEDS_PAPILA" || echo "$SEEDS_GLAUCOMA"; }
 # Outputs live under vit_base/<dataset>/ and use the --sens_attribute value in their names
 # ("race" runs as intersectional + --group_cols Race, see run_pipeline.sh).

@@ -165,6 +165,28 @@ If the DataLoader check hangs, prefix later commands with `WORKERS=0`.
 Use `age` or `intersectional` in place of `gender` for the other fairness attributes (`race` also exists for Harvard-GF).
 The whole experiment grid (days of GPU time) is `./orchestration/run_experiments.sh all`; see [RUN_GUIDE.md](RUN_GUIDE.md).
 
+#### One experiment cell: PAPILA, sensitivity search, sex, one seed
+
+Sex is the `gender` attribute in the code. `--attrs` limits the driver to that attribute (without it, `exp2` runs
+both `gender` and `age`):
+
+```bash
+# smoke test of exactly this cell (2 epochs, k in {1,4,36}): ~3-4 min on an RTX 4070 Ti
+./orchestration/run_experiments.sh exp2 --smoke-test --dataset papila --seeds-papila 0 --attrs gender --runs-dir runs_smoke
+
+# the real cell (10-point k-sweep x 30 epochs + 30-epoch Stage 2)
+./orchestration/run_experiments.sh exp2 --dataset papila --seeds-papila 0 --attrs gender --runs-dir runs_local
+```
+
+Use a fresh `--runs-dir` (any name; `runs_smoke/` is git-ignored, `runs_local/` is not, so don't commit it by
+accident). The committed `runs/` already holds this finished cell (`runs/papila/sens_wg/gender/seed0/DONE`), and the
+driver skips finished cells, so with the default `runs/` it would print `skip (done)` and do nothing. Results land
+in `<runs-dir>/papila/sens_wg/gender/seed0/` (`RESULTS_gender_min_auc.csv`, the mask, the k-sweep table) plus one
+row in `<runs-dir>/timings.csv`. Add `--dry-run` to see the commands without running them.
+
+The `config` step (step 4) rewrites `config.yaml` with this machine's absolute paths, so `git status` will show it
+modified. That is expected. Don't commit it unless you mean to.
+
 ### Reproduce the paper's tables and figures
 
 ```bash
